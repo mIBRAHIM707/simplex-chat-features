@@ -471,12 +471,25 @@ userQuery =
   |]
 
 toUser :: (UserId, UserId, ContactId, ProfileId, BoolInt, Int64, ContactName, Text, Maybe ImageData, Maybe ConnLinkContact, Maybe Preferences) :. (BoolInt, BoolInt, BoolInt, Maybe B64UrlByteString, Maybe B64UrlByteString, Maybe UTCTime, Maybe UIThemeEntityOverrides, Int) -> User
-toUser ((userId, auId, userContactId, profileId, BI activeUser, activeOrder, displayName, fullName, image, contactLink, userPreferences) :. (BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, viewPwdHash_, viewPwdSalt_, userMemberProfileUpdatedAt, uiThemes, defaultTimerTTL)) =
-  User {userId, agentUserId = AgentUserId auId, userContactId, localDisplayName = displayName, profile, activeUser, activeOrder, fullPreferences, showNtfs, sendRcptsContacts, sendRcptsSmallGroups, viewPwdHash, userMemberProfileUpdatedAt, uiThemes, defaultTimerTTL}
-  where
-    profile = LocalProfile {profileId, displayName, fullName, image, contactLink, preferences = userPreferences, localAlias = ""}
-    fullPreferences = mergePreferences Nothing userPreferences
-    viewPwdHash = UserPwdHash <$> viewPwdHash_ <*> viewPwdSalt_
+toUser ((userId, auId, userContactId, profileId, BI activeUser, activeOrder, displayName, fullName, image, contactLink, userPreferences)
+      :. (BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, viewPwdHash_, viewPwdSalt_, userMemberProfileUpdatedAt, uiThemes, defaultTimerTTL)) =
+  User
+    { userId
+    , agentUserId = AgentUserId auId
+    , userContactId
+    , localDisplayName = displayName
+    , profile = LocalProfile { profileId, displayName, fullName, image, contactLink, preferences = userPreferences, localAlias = "" }
+    , fullPreferences = mergePreferences Nothing userPreferences
+    , activeUser
+    , activeOrder
+    , viewPwdHash = liftA2 UserPwdHash viewPwdHash_ viewPwdSalt_
+    , showNtfs
+    , sendRcptsContacts
+    , sendRcptsSmallGroups
+    , userMemberProfileUpdatedAt
+    , uiThemes
+    , defaultTimerTTL
+    }
 
 toPendingContactConnection :: (Int64, ConnId, ConnStatus, Maybe ByteString, Maybe Int64, Maybe GroupLinkId, Maybe Int64, Maybe ConnReqInvitation, Maybe (ConnShortLink 'CMInvitation), LocalAlias, UTCTime, UTCTime) -> PendingContactConnection
 toPendingContactConnection (pccConnId, acId, pccConnStatus, connReqHash, viaUserContactLink, groupLinkId, customUserProfileId, connReqInv, shortLinkInv, localAlias, createdAt, updatedAt) =
