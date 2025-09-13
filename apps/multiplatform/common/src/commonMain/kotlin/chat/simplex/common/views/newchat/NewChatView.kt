@@ -30,8 +30,10 @@ import dev.icerock.moko.resources.compose.painterResource
 import dev.icerock.moko.resources.compose.stringResource
 import androidx.compose.ui.unit.sp
 import chat.simplex.common.model.*
-import chat.simplex.common.model.ChatController.appPrefs
-import chat.simplex.common.model.ChatModel.controller
+import chat.simplex.common.model.ChatController
+import chat.simplex.common.model.ChatModel
+import chat.simplex.common.model.User
+import chat.simplex.common.model.PendingContactConnection
 import chat.simplex.common.platform.*
 import chat.simplex.common.ui.theme.*
 import chat.simplex.common.views.chat.topPaddingToContent
@@ -49,9 +51,9 @@ fun ModalData.NewChatView(rh: RemoteHostInfo?, selection: NewChatOption, showQRC
   val selection = remember { stateGetOrPut("selection") { selection } }
   val showQRCodeScanner = remember { stateGetOrPut("showQRCodeScanner") { showQRCodeScanner } }
   val contactConnection: MutableState<PendingContactConnection?> = rememberSaveable(stateSaver = serializableSaver()) { mutableStateOf(chatModel.showingInvitation.value?.conn) }
-  val connLinkInvitation by remember { derivedStateOf { chatModel.showingInvitation.value?.connLink ?: CreatedConnLink("", null) } }
-  val creatingConnReq = rememberSaveable { mutableStateOf(false) }
-  val pastedLink = rememberSaveable { mutableStateOf("") }
+  val connLinkInvitation: State<CreatedConnLink> = remember { derivedStateOf { chatModel.showingInvitation.value?.connLink ?: CreatedConnLink("", null) } }
+  val creatingConnReq: MutableState<Boolean> = rememberSaveable { mutableStateOf(false) }
+  val pastedLink: MutableState<String> = rememberSaveable { mutableStateOf("") }
   LaunchedEffect(selection.value) {
     if (
       selection.value == NewChatOption.INVITE
@@ -276,12 +278,12 @@ fun ActiveProfilePicker(
 ) {
   val switchingProfile = remember { mutableStateOf(false) }
   val incognito = remember {
-    chatModel.showingInvitation.value?.conn?.incognito ?: controller.appPrefs.incognito.get()
+  chatModel.showingInvitation.value?.conn?.incognito ?: ChatModel.controller.appPrefs.incognito.get()
   }
-  val selectedProfile by remember { chatModel.currentUser }
-  val searchTextOrPassword = rememberSaveable { search }
+  val selectedProfile: State<User?> = remember { chatModel.currentUser }
+  val searchTextOrPassword: MutableState<String> = rememberSaveable { search }
   // Intentionally don't use derivedStateOf in order to NOT change an order after user was selected
-  val filteredProfiles = remember(searchTextOrPassword.value) {
+  val filteredProfiles: List<User> = remember(searchTextOrPassword.value) {
     filteredProfiles(chatModel.users.map { it.user }.sortedBy { !it.activeUser }, searchTextOrPassword.value)
   }
 
