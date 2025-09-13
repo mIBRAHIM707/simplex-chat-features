@@ -157,7 +157,7 @@ import Simplex.Chat.Messages
 import Simplex.Chat.Messages.CIContent
 import Simplex.Chat.Protocol
 import Simplex.Chat.Store.Direct
-import Simplex.Chat.Store.Shared (StoreError(..), ContactRequestRow, toContactRequest, toFileInfo, fileInfoQuery)
+import Simplex.Chat.Store.Shared (StoreError(..), ContactRequestRow, toContactRequest, toFileInfo, fileInfoQuery, toPendingContactConnection, constraintError)
 import Simplex.Chat.Store.Groups
 import Simplex.Chat.Store.Profiles (getUser, getUserByContactId)
 import Simplex.Chat.Store.NoteFolders
