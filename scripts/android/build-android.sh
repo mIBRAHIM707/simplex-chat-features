@@ -2,7 +2,7 @@
 # Safety measures
 set -eu
 
-repo="https://github.com/simplex-chat/simplex-chat"
+repo="https://github.com/mIBRAHIM707/simplex-chat-features"
 
 u="$USER"
 tmp="$(mktemp -d -t)"
