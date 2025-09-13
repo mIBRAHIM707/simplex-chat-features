@@ -125,33 +125,35 @@ createUserRecord db auId p activeUser = createUserRecordAt db auId p activeUser 
 
 createUserRecordAt :: DB.Connection -> AgentUserId -> Profile -> Bool -> UTCTime -> ExceptT StoreError IO User
 createUserRecordAt db (AgentUserId auId) Profile {displayName, fullName, image, preferences = userPreferences} activeUser currentTs =
-  checkConstraint SEDuplicateName . liftIO $ do
-    when activeUser $ DB.execute_ db "UPDATE users SET active_user = 0"
-    let showNtfs = True
-        sendRcptsContacts = True
-        sendRcptsSmallGroups = True
-    order <- getNextActiveOrder db
-    DB.execute
-      db
-      "INSERT INTO users (agent_user_id, local_display_name, active_user, active_order, contact_id, show_ntfs, send_rcpts_contacts, send_rcpts_small_groups, created_at, updated_at, default_timer_ttl) VALUES (?,?,?,?,0,?,?,?,?,?,?,?)"
-      (auId, displayName, BI activeUser, order, BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, currentTs, currentTs, (86400 :: Int))
-    userId <- insertedRowId db
-    DB.execute
-      db
-      "INSERT INTO display_names (local_display_name, ldn_base, user_id, created_at, updated_at) VALUES (?,?,?,?,?)"
-      (displayName, displayName, userId, currentTs, currentTs)
-    DB.execute
-      db
-      "INSERT INTO contact_profiles (display_name, full_name, image, user_id, preferences, created_at, updated_at) VALUES (?,?,?,?,?,?,?)"
-      (displayName, fullName, image, userId, userPreferences, currentTs, currentTs)
-    profileId <- insertedRowId db
-    DB.execute
-      db
-      "INSERT INTO contacts (contact_profile_id, local_display_name, user_id, is_user, created_at, updated_at, chat_ts) VALUES (?,?,?,?,?,?,?)"
-      (profileId, displayName, userId, BI True, currentTs, currentTs, currentTs)
-    contactId <- insertedRowId db
-    DB.execute db "UPDATE users SET contact_id = ? WHERE user_id = ?" (contactId, userId)
-  pure $ toUser $ (userId, auId, contactId, profileId, BI activeUser, order, displayName, fullName, image, Just "", userPreferences) :. (BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, Nothing, Nothing, Nothing, Nothing, 86400)
+  checkConstraint SEDuplicateName . liftIO $ (
+    -> do
+      when activeUser $ DB.execute_ db "UPDATE users SET active_user = 0"
+      let showNtfs = True
+          sendRcptsContacts = True
+          sendRcptsSmallGroups = True
+      order <- getNextActiveOrder db
+      DB.execute
+        db
+        "INSERT INTO users (agent_user_id, local_display_name, active_user, active_order, contact_id, show_ntfs, send_rcpts_contacts, send_rcpts_small_groups, created_at, updated_at, default_timer_ttl) VALUES (?,?,?,?,0,?,?,?,?,?,?,?)"
+        (auId, displayName, BI activeUser, order, BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, currentTs, currentTs, (86400 :: Int))
+      userId <- insertedRowId db
+      DB.execute
+        db
+        "INSERT INTO display_names (local_display_name, ldn_base, user_id, created_at, updated_at) VALUES (?,?,?,?,?)"
+        (displayName, displayName, userId, currentTs, currentTs)
+      DB.execute
+        db
+        "INSERT INTO contact_profiles (display_name, full_name, image, user_id, preferences, created_at, updated_at) VALUES (?,?,?,?,?,?,?)"
+        (displayName, fullName, image, userId, userPreferences, currentTs, currentTs)
+      profileId <- insertedRowId db
+      DB.execute
+        db
+        "INSERT INTO contacts (contact_profile_id, local_display_name, user_id, is_user, created_at, updated_at, chat_ts) VALUES (?,?,?,?,?,?,?)"
+        (profileId, displayName, userId, BI True, currentTs, currentTs, currentTs)
+      contactId <- insertedRowId db
+      DB.execute db "UPDATE users SET contact_id = ? WHERE user_id = ?" (contactId, userId)
+      pure $ toUser $ (userId, auId, contactId, profileId, BI activeUser, order, displayName, fullName, image, Just "", userPreferences) :. (BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, Nothing, Nothing, Nothing, Nothing, 86400)
+    ) ()
 
 -- TODO [mentions]
 getUsersInfo :: DB.Connection -> IO [UserInfo]
