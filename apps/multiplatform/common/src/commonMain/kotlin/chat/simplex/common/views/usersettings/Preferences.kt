@@ -1,3 +1,4 @@
+import chat.simplex.common.model.SimpleXAPI
 package chat.simplex.common.views.usersettings
 
 import SectionBottomSpacer
@@ -82,7 +83,7 @@ private fun PreferencesLayout(
       "1 day",
       "7 days"
     )
-    val customTimerPref = chat.simplex.common.model.SimpleXAPI().customDisappearingMessageTime
+  val customTimerPref = SimpleXAPI().customDisappearingMessageTime
     var timerValue by rememberSaveable { mutableStateOf(customTimerPref.get()) }
     val scope = rememberCoroutineScope()
     SectionView {
@@ -96,7 +97,7 @@ private fun PreferencesLayout(
           // Sync with backend
           scope.launch {
             try {
-              chat.simplex.common.model.SimpleXAPI().setChatItemTTL(null, ChatItemTTL(timerValue))
+              SimpleXAPI().setChatItemTTL(null, if (timerValue == 0) ChatItemTTL.None else ChatItemTTL.Seconds(timerValue.toLong()))
             } catch (_: Exception) {}
           }
         },

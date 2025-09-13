@@ -1,3 +1,4 @@
+import chat.simplex.common.model.SimpleXAPI
 package chat.simplex.common.model
 
 import androidx.compose.material.*
@@ -53,7 +54,7 @@ object ChatModel {
    * If only one is available, use that. If neither, return 0 (None).
    */
   suspend fun getLowestDisappearingTimerWithContact(rhId: Long?, contactId: Long): Int {
-    val api = chat.simplex.common.model.SimpleXAPI()
+  val api = SimpleXAPI()
     // Get current user's timer
     val myTTL = try { api.getChatItemTTL(rhId).seconds } catch (_: Exception) { 0 }
     // Get contact's timer from chat/contact info if available
@@ -72,7 +73,7 @@ object ChatModel {
     val ttl = getLowestDisappearingTimerWithContact(rhId, contactId)
     if (ttl > 0) {
       try {
-        chat.simplex.common.model.SimpleXAPI().setChatItemTTL(rhId, ChatItemTTL(ttl))
+        SimpleXAPI().setChatItemTTL(rhId, ChatItemTTL.Seconds(ttl.toLong()))
       } catch (_: Exception) {}
     }
   }
