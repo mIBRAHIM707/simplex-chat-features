@@ -18,6 +18,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import chat.simplex.common.model.*
+import chat.simplex.common.model.ChatModel
+import chat.simplex.common.model.User
+import chat.simplex.common.model.UserInfo
+import chat.simplex.common.model.Profile
+import chat.simplex.common.model.NamedChat
+import chat.simplex.common.model.MsgContent
 import chat.simplex.common.ui.theme.*
 import chat.simplex.common.views.helpers.*
 import chat.simplex.common.views.onboarding.ReadableText

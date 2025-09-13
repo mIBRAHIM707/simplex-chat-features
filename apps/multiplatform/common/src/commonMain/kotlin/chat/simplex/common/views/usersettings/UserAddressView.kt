@@ -24,6 +24,10 @@ import chat.simplex.common.ui.theme.*
 import chat.simplex.common.views.chat.ShareAddressButton
 import chat.simplex.common.views.helpers.*
 import chat.simplex.common.model.ChatModel
+import chat.simplex.common.model.User
+import chat.simplex.common.model.UserInfo
+import chat.simplex.common.model.Profile
+import chat.simplex.common.model.NamedChat
 import chat.simplex.common.model.MsgContent
 import chat.simplex.common.platform.*
 import chat.simplex.common.views.newchat.*
@@ -47,7 +51,7 @@ fun UserAddressView(
     progressIndicator = true
     withBGApi {
       try {
-        val u = chatModel.controller.apiSetProfileAddress(user?.value?.remoteHostId, on)
+  val u = ChatModel.controller.apiSetProfileAddress(user?.value?.remoteHostId, on)
         if (u != null) {
           chatModel.updateUser(u)
         }
@@ -63,7 +67,7 @@ fun UserAddressView(
     withBGApi {
       progressIndicator = true
       val short = appPreferences.privacyShortLinks.get()
-      val connReqContact = chatModel.controller.apiCreateUserAddress(user.value?.remoteHostId, short = short)
+  val connReqContact = ChatModel.controller.apiCreateUserAddress(user.value?.remoteHostId, short = short)
       if (connReqContact != null) {
         chatModel.userAddress.value = UserContactLinkRec(connReqContact)
 
