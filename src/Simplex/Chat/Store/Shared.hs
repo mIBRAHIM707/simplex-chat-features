@@ -1,6 +1,3 @@
--- | Get the minimum default disappearing timer between two users
-getInitialDisappearingTimer :: User -> User -> Int
-getInitialDisappearingTimer userA userB = min (defaultTimerTTL userA) (defaultTimerTTL userB)
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DeriveAnyClass #-}
@@ -239,6 +236,10 @@ toConnection vr ((connId, acId, connLevel, viaContact, viaUserContactLink, BI vi
     entityId_ ConnRcvFile = rcvFileId
     entityId_ ConnSndFile = sndFileId
     entityId_ ConnUserContact = userContactLinkId
+
+-- | Get the minimum default disappearing timer between two users
+getInitialDisappearingTimer :: User -> User -> Int
+getInitialDisappearingTimer userA userB = min (defaultTimerTTL userA) (defaultTimerTTL userB)
 
 toMaybeConnection :: VersionRangeChat -> MaybeConnectionRow -> Maybe Connection
 toMaybeConnection vr ((Just connId, Just agentConnId, Just connLevel, viaContact, viaUserContactLink, Just viaGroupLink, groupLinkId, customUserProfileId, Just connStatus, Just connType, Just contactConnInitiated, Just localAlias) :. (contactId, groupMemberId, sndFileId, rcvFileId, userContactLinkId) :. (Just createdAt, code_, verifiedAt_, Just pqSupport, Just pqEncryption, pqSndEnabled_, pqRcvEnabled_, Just authErrCounter, Just quotaErrCounter, connChatVersion, Just minVer, Just maxVer)) =
