@@ -104,7 +104,7 @@ testGroupPreferences :: Maybe GroupPreferences
 testGroupPreferences = Just GroupPreferences {timedMessages = Nothing, directMessages = Nothing, reactions = Just ReactionsGroupPreference {enable = FEOn}, voice = Just VoiceGroupPreference {enable = FEOn, role = Nothing}, files = Nothing, fullDelete = Nothing, simplexLinks = Nothing, history = Nothing, reports = Nothing}
 
 testProfile :: Profile
-testProfile = Profile {displayName = "alice", fullName = "Alice", image = Just (ImageData "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAQMAAAD+wSzIAAAABlBMVEX///+/v7+jQ3Y5AAAADklEQVQI12P4AIX8EAgALgAD/aNpbtEAAAAASUVORK5CYII="), contactLink = Nothing, preferences = testChatPreferences}
+testProfile = Profile {displayName = "alice", fullName = "Alice", image = Just (ImageData "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAQMAAAD+wSzIAAAABlBMVEX///+/v7+jQ3Y5AAAADklEQVQI12P4AIX8EAgALgAD/aNpbtEAAAAASUVORK5CYII="), contactLink = Nothing, preferences = testChatPreferences, defaultTimerTTL = Nothing}
 
 testGroupProfile :: GroupProfile
 testGroupProfile = GroupProfile {displayName = "team", fullName = "Team", description = Nothing, image = Nothing, groupPreferences = testGroupPreferences, memberAdmission = Nothing}

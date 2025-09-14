@@ -2028,18 +2028,24 @@ processAgentMessageConn vr user@User {userId} corrId agentConnId agentMessage = 
       | otherwise =
           pure c
       where
-        p = fromLocalProfile lp
+        p = fromLocalProfileWithDefault lp (defaultTimerTTL user)
         Contact {userPreferences = ctUserPrefs@Preferences {timedMessages = ctUserTMPref}} = c
         userTTL = prefParam $ getPreference SCFTimedMessages ctUserPrefs
-        Profile {preferences = rcvPrefs_} = p'
+        Profile {preferences = rcvPrefs_, defaultTimerTTL = rcvDefaultTTL} = p'
         rcvTTL = prefParam $ getPreference SCFTimedMessages rcvPrefs_
         ctUserPrefs' =
           let userDefault = getPreference SCFTimedMessages (fullPreferences user)
               userDefaultTTL = prefParam userDefault
+              -- If both users have default timers, use the minimum
+              negotiatedTTL = case (userDefaultTTL, rcvDefaultTTL) of
+                (Just uTTL, Just rTTL) -> Just $ min uTTL rTTL
+                (Just uTTL, Nothing) -> Just uTTL
+                (Nothing, Just rTTL) -> Just rTTL
+                (Nothing, Nothing) -> Nothing
               ctUserTMPref' = case ctUserTMPref of
-                Just userTM -> Just (userTM :: TimedMessagesPreference) {ttl = rcvTTL}
+                Just userTM -> Just (userTM :: TimedMessagesPreference) {ttl = negotiatedTTL}
                 _
-                  | rcvTTL /= userDefaultTTL -> Just (userDefault :: TimedMessagesPreference) {ttl = rcvTTL}
+                  | Just nTTL <- negotiatedTTL, nTTL /= userDefaultTTL -> Just (userDefault :: TimedMessagesPreference) {ttl = negotiatedTTL}
                   | otherwise -> Nothing
            in setPreference_ SCFTimedMessages ctUserTMPref' ctUserPrefs
         createProfileUpdatedItem c' =

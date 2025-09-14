@@ -74,6 +74,8 @@ module Simplex.Chat.Store.Profiles
     updateCommandStatus,
     getCommandDataByCorrId,
     setUserUIThemes,
+    getUserDefaultTimerTTL,
+    setUserDefaultTimerTTL,
   )
 where
 
@@ -124,7 +126,7 @@ createUserRecord :: DB.Connection -> AgentUserId -> Profile -> Bool -> ExceptT S
 createUserRecord db auId p activeUser = createUserRecordAt db auId p activeUser =<< liftIO getCurrentTime
 
 createUserRecordAt :: DB.Connection -> AgentUserId -> Profile -> Bool -> UTCTime -> ExceptT StoreError IO User
-createUserRecordAt db (AgentUserId auId) Profile {displayName, fullName, image, preferences = userPreferences} activeUser currentTs =
+createUserRecordAt db (AgentUserId auId) Profile {displayName, fullName, image, preferences = userPreferences, defaultTimerTTL} activeUser currentTs =
   checkConstraint SEDuplicateName . liftIO $ do
     when activeUser $ DB.execute_ db "UPDATE users SET active_user = 0"
     let showNtfs = True
@@ -133,8 +135,8 @@ createUserRecordAt db (AgentUserId auId) Profile {displayName, fullName, image, 
     order <- getNextActiveOrder db
     DB.execute
       db
-      "INSERT INTO users (agent_user_id, local_display_name, active_user, active_order, contact_id, show_ntfs, send_rcpts_contacts, send_rcpts_small_groups, created_at, updated_at) VALUES (?,?,?,?,0,?,?,?,?,?)"
-      (auId, displayName, BI activeUser, order, BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, currentTs, currentTs)
+      "INSERT INTO users (agent_user_id, local_display_name, active_user, active_order, contact_id, show_ntfs, send_rcpts_contacts, send_rcpts_small_groups, default_timer_ttl, created_at, updated_at) VALUES (?,?,?,?,0,?,?,?,?,?,?)"
+      (auId, displayName, BI activeUser, order, BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, 86400, currentTs, currentTs)
     userId <- insertedRowId db
     DB.execute
       db
@@ -151,7 +153,7 @@ createUserRecordAt db (AgentUserId auId) Profile {displayName, fullName, image, 
       (profileId, displayName, userId, BI True, currentTs, currentTs, currentTs)
     contactId <- insertedRowId db
     DB.execute db "UPDATE users SET contact_id = ? WHERE user_id = ?" (contactId, userId)
-    pure $ toUser $ (userId, auId, contactId, profileId, BI activeUser, order, displayName, fullName, image, Nothing, userPreferences) :. (BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, Nothing, Nothing, Nothing, Nothing)
+    pure $ toUser $ (userId, auId, contactId, profileId, BI activeUser, order, displayName, fullName, image, Nothing, userPreferences) :. (BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, Nothing, Nothing, Nothing, Nothing, fromMaybe 86400 defaultTimerTTL)
 
 -- TODO [mentions]
 getUsersInfo :: DB.Connection -> IO [UserInfo]
@@ -291,12 +293,13 @@ updateUserProfile db user p'
   | displayName == newName = liftIO $ do
       updateContactProfile_ db userId profileId p'
       currentTs <- getCurrentTime
+      DB.execute db "UPDATE users SET default_timer_ttl = ?, updated_at = ? WHERE user_id = ?" (fromMaybe 86400 defaultTimerTTL, currentTs, userId)
       userMemberProfileUpdatedAt' <- updateUserMemberProfileUpdatedAt_ currentTs
-      pure user {profile, fullPreferences, userMemberProfileUpdatedAt = userMemberProfileUpdatedAt'}
+      pure user {profile, fullPreferences, userMemberProfileUpdatedAt = userMemberProfileUpdatedAt', defaultTimerTTL = fromMaybe 86400 defaultTimerTTL}
   | otherwise =
       checkConstraint SEDuplicateName . liftIO $ do
         currentTs <- getCurrentTime
-        DB.execute db "UPDATE users SET local_display_name = ?, updated_at = ? WHERE user_id = ?" (newName, currentTs, userId)
+        DB.execute db "UPDATE users SET local_display_name = ?, default_timer_ttl = ?, updated_at = ? WHERE user_id = ?" (newName, fromMaybe 86400 defaultTimerTTL, currentTs, userId)
         userMemberProfileUpdatedAt' <- updateUserMemberProfileUpdatedAt_ currentTs
         DB.execute
           db
@@ -304,7 +307,7 @@ updateUserProfile db user p'
           (newName, newName, userId, currentTs, currentTs)
         updateContactProfile_' db userId profileId p' currentTs
         updateContactLDN_ db user userContactId localDisplayName newName currentTs
-        pure user {localDisplayName = newName, profile, fullPreferences, userMemberProfileUpdatedAt = userMemberProfileUpdatedAt'}
+        pure user {localDisplayName = newName, profile, fullPreferences, userMemberProfileUpdatedAt = userMemberProfileUpdatedAt', defaultTimerTTL = fromMaybe 86400 defaultTimerTTL}
   where
     updateUserMemberProfileUpdatedAt_ currentTs
       | userMemberProfileChanged = do
@@ -313,7 +316,7 @@ updateUserProfile db user p'
       | otherwise = pure userMemberProfileUpdatedAt
     userMemberProfileChanged = newName /= displayName || newFullName /= fullName || newImage /= image
     User {userId, userContactId, localDisplayName, profile = LocalProfile {profileId, displayName, fullName, image, localAlias}, userMemberProfileUpdatedAt} = user
-    Profile {displayName = newName, fullName = newFullName, image = newImage, preferences} = p'
+    Profile {displayName = newName, fullName = newFullName, image = newImage, preferences, defaultTimerTTL} = p'
     profile = toLocalProfile profileId p' localAlias
     fullPreferences = mergePreferences Nothing preferences
 
@@ -350,7 +353,7 @@ getUserContactProfiles db User {userId} =
       (Only userId)
   where
     toContactProfile :: (ContactName, Text, Maybe ImageData, Maybe ConnLinkContact, Maybe Preferences) -> Profile
-    toContactProfile (displayName, fullName, image, contactLink, preferences) = Profile {displayName, fullName, image, contactLink, preferences}
+    toContactProfile (displayName, fullName, image, contactLink, preferences) = Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL = Nothing}
 
 createUserContactLink :: DB.Connection -> User -> ConnId -> CreatedLinkContact -> SubscriptionMode -> ExceptT StoreError IO ()
 createUserContactLink db User {userId} agentConnId (CCLink cReq shortLink) subMode =
@@ -936,3 +939,13 @@ setUserUIThemes :: DB.Connection -> User -> Maybe UIThemeEntityOverrides -> IO (
 setUserUIThemes db User {userId} uiThemes = do
   updatedAt <- getCurrentTime
   DB.execute db "UPDATE users SET ui_themes = ?, updated_at = ? WHERE user_id = ?" (uiThemes, updatedAt, userId)
+
+getUserDefaultTimerTTL :: DB.Connection -> User -> IO Int
+getUserDefaultTimerTTL db User {userId} =
+  fmap (fromMaybe 86400) . maybeFirstRow fromOnly $
+    DB.query db "SELECT default_timer_ttl FROM users WHERE user_id = ? LIMIT 1" (Only userId)
+
+setUserDefaultTimerTTL :: DB.Connection -> User -> Int -> IO ()
+setUserDefaultTimerTTL db User {userId} defaultTimerTTL = do
+  updatedAt <- getCurrentTime
+  DB.execute db "UPDATE users SET default_timer_ttl = ?, updated_at = ? WHERE user_id = ?" (defaultTimerTTL, updatedAt, userId)

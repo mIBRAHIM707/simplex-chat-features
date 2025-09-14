@@ -132,7 +132,8 @@ data User = User
     sendRcptsContacts :: Bool,
     sendRcptsSmallGroups :: Bool,
     userMemberProfileUpdatedAt :: Maybe UTCTime,
-    uiThemes :: Maybe UIThemeEntityOverrides
+    uiThemes :: Maybe UIThemeEntityOverrides,
+    defaultTimerTTL :: Int
   }
   deriving (Show)
 
@@ -562,7 +563,8 @@ data Profile = Profile
     fullName :: Text,
     image :: Maybe ImageData,
     contactLink :: Maybe ConnLinkContact,
-    preferences :: Maybe Preferences
+    preferences :: Maybe Preferences,
+    defaultTimerTTL :: Maybe Int
     -- fields that should not be read into this data type to prevent sending them as part of profile to contacts:
     -- - contact_profile_id
     -- - incognito
@@ -572,7 +574,7 @@ data Profile = Profile
 
 profileFromName :: ContactName -> Profile
 profileFromName displayName =
-  Profile {displayName, fullName = "", image = Nothing, contactLink = Nothing, preferences = Nothing}
+  Profile {displayName, fullName = "", image = Nothing, contactLink = Nothing, preferences = Nothing, defaultTimerTTL = Nothing}
 
 -- check if profiles match ignoring preferences
 profilesMatch :: LocalProfile -> LocalProfile -> Bool
@@ -583,7 +585,7 @@ profilesMatch
 
 redactedMemberProfile :: Profile -> Profile
 redactedMemberProfile Profile {displayName, fullName, image} =
-  Profile {displayName, fullName, image, contactLink = Nothing, preferences = Nothing}
+  Profile {displayName, fullName, image, contactLink = Nothing, preferences = Nothing, defaultTimerTTL = Nothing}
 
 data IncognitoProfile = NewIncognito Profile | ExistingIncognito LocalProfile
 
@@ -609,7 +611,11 @@ toLocalProfile profileId Profile {displayName, fullName, image, contactLink, pre
 
 fromLocalProfile :: LocalProfile -> Profile
 fromLocalProfile LocalProfile {displayName, fullName, image, contactLink, preferences} =
-  Profile {displayName, fullName, image, contactLink, preferences}
+  Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL = Nothing}
+
+fromLocalProfileWithDefault :: LocalProfile -> Int -> Profile
+fromLocalProfileWithDefault LocalProfile {displayName, fullName, image, contactLink, preferences} defaultTTL =
+  Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL = Just defaultTTL}
 
 data GroupProfile = GroupProfile
   { displayName :: GroupName,

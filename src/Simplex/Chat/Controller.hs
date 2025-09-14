@@ -389,6 +389,10 @@ data ChatCommand
   | SetChatItemTTL Int64
   | APIGetChatItemTTL UserId
   | GetChatItemTTL
+  | APISetUserDefaultTimerTTL UserId Int
+  | SetUserDefaultTimerTTL Int
+  | APIGetUserDefaultTimerTTL UserId
+  | GetUserDefaultTimerTTL
   | APISetChatTTL UserId ChatRef (Maybe Int64)
   | SetChatTTL ChatName (Maybe Int64)
   | GetChatTTL ChatName
@@ -620,6 +624,7 @@ data ChatResponse
   | CRUserServersValidation {user :: User, serverErrors :: [UserServersError]}
   | CRUsageConditions {usageConditions :: UsageConditions, conditionsText :: Text, acceptedConditions :: Maybe UsageConditions}
   | CRChatItemTTL {user :: User, chatItemTTL :: Maybe Int64}
+  | CRUserDefaultTimerTTL {user :: User, defaultTimerTTL :: Int}
   | CRNetworkConfig {networkConfig :: NetworkConfig}
   | CRContactInfo {user :: User, contact :: Contact, connectionStats_ :: Maybe ConnectionStats, customUserProfile :: Maybe Profile}
   | CRGroupInfo {user :: User, groupInfo :: GroupInfo, groupSummary :: GroupSummary}

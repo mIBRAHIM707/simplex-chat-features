@@ -291,7 +291,7 @@ createConnection_ db userId connType entityId acId connStatus connChatVersion pe
     ent ct = if connType == ct then entityId else Nothing
 
 createIncognitoProfile_ :: DB.Connection -> UserId -> UTCTime -> Profile -> IO Int64
-createIncognitoProfile_ db userId createdAt Profile {displayName, fullName, image} = do
+createIncognitoProfile_ db userId createdAt Profile {displayName, fullName, image, defaultTimerTTL} = do
   DB.execute
     db
     [sql|
@@ -385,7 +385,7 @@ createContact db User {userId} profile = do
   void $ createContact_ db userId profile "" Nothing currentTs
 
 createContact_ :: DB.Connection -> UserId -> Profile -> LocalAlias -> Maybe Int64 -> UTCTime -> ExceptT StoreError IO (Text, ContactId, ProfileId)
-createContact_ db userId Profile {displayName, fullName, image, contactLink, preferences} localAlias viaGroup currentTs =
+createContact_ db userId Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL} localAlias viaGroup currentTs =
   ExceptT . withLocalDisplayName db userId displayName $ \ldn -> do
     DB.execute
       db
@@ -449,7 +449,7 @@ type ContactRequestRow = (Int64, ContactName, AgentInvId, Maybe ContactId, Int64
 
 toContactRequest :: ContactRequestRow -> UserContactRequest
 toContactRequest ((contactRequestId, localDisplayName, agentInvitationId, contactId_, userContactLinkId, agentContactConnId, profileId, displayName, fullName, image, contactLink) :. (xContactId, pqSupport, preferences, createdAt, updatedAt, minVer, maxVer)) = do
-  let profile = Profile {displayName, fullName, image, contactLink, preferences}
+  let profile = Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL}
       cReqChatVRange = fromMaybe (versionToRange maxVer) $ safeVersionRange minVer maxVer
    in UserContactRequest {contactRequestId, agentInvitationId, contactId_, userContactLinkId, agentContactConnId, cReqChatVRange, localDisplayName, profileId, profile, xContactId, pqSupport, createdAt, updatedAt}
 
@@ -457,15 +457,15 @@ userQuery :: Query
 userQuery =
   [sql|
     SELECT u.user_id, u.agent_user_id, u.contact_id, ucp.contact_profile_id, u.active_user, u.active_order, u.local_display_name, ucp.full_name, ucp.image, ucp.contact_link, ucp.preferences,
-      u.show_ntfs, u.send_rcpts_contacts, u.send_rcpts_small_groups, u.view_pwd_hash, u.view_pwd_salt, u.user_member_profile_updated_at, u.ui_themes
+      u.show_ntfs, u.send_rcpts_contacts, u.send_rcpts_small_groups, u.view_pwd_hash, u.view_pwd_salt, u.user_member_profile_updated_at, u.ui_themes, u.default_timer_ttl
     FROM users u
     JOIN contacts uct ON uct.contact_id = u.contact_id
     JOIN contact_profiles ucp ON ucp.contact_profile_id = uct.contact_profile_id
   |]
 
-toUser :: (UserId, UserId, ContactId, ProfileId, BoolInt, Int64, ContactName, Text, Maybe ImageData, Maybe ConnLinkContact, Maybe Preferences) :. (BoolInt, BoolInt, BoolInt, Maybe B64UrlByteString, Maybe B64UrlByteString, Maybe UTCTime, Maybe UIThemeEntityOverrides) -> User
-toUser ((userId, auId, userContactId, profileId, BI activeUser, activeOrder, displayName, fullName, image, contactLink, userPreferences) :. (BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, viewPwdHash_, viewPwdSalt_, userMemberProfileUpdatedAt, uiThemes)) =
-  User {userId, agentUserId = AgentUserId auId, userContactId, localDisplayName = displayName, profile, activeUser, activeOrder, fullPreferences, showNtfs, sendRcptsContacts, sendRcptsSmallGroups, viewPwdHash, userMemberProfileUpdatedAt, uiThemes}
+toUser :: (UserId, UserId, ContactId, ProfileId, BoolInt, Int64, ContactName, Text, Maybe ImageData, Maybe ConnLinkContact, Maybe Preferences) :. (BoolInt, BoolInt, BoolInt, Maybe B64UrlByteString, Maybe B64UrlByteString, Maybe UTCTime, Maybe UIThemeEntityOverrides, Int) -> User
+toUser ((userId, auId, userContactId, profileId, BI activeUser, activeOrder, displayName, fullName, image, contactLink, userPreferences) :. (BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, viewPwdHash_, viewPwdSalt_, userMemberProfileUpdatedAt, uiThemes, defaultTimerTTL)) =
+  User {userId, agentUserId = AgentUserId auId, userContactId, localDisplayName = displayName, profile, activeUser, activeOrder, fullPreferences, showNtfs, sendRcptsContacts, sendRcptsSmallGroups, viewPwdHash, userMemberProfileUpdatedAt, uiThemes, defaultTimerTTL}
   where
     profile = LocalProfile {profileId, displayName, fullName, image, contactLink, preferences = userPreferences, localAlias = ""}
     fullPreferences = mergePreferences Nothing userPreferences
