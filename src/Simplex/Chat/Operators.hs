@@ -390,7 +390,7 @@ updatedUserServers (presetOp_, UserOperatorServers {operator, smpServers, xftpSe
 srvHost :: UserServer' s p -> NonEmpty TransportHost
 srvHost UserServer {server = ProtoServerWithAuth srv _} = host srv
 
-agentServerCfgs :: UserProtocol p => SProtocolType p -> [(Text, ServerOperator)] -> [UserServer' s p] -> [ServerCfg p]
+agentServerCfgs :: SProtocolType p -> [(Text, ServerOperator)] -> [UserServer' s p] -> [ServerCfg p]
 agentServerCfgs p opDomains = mapMaybe agentServer
   where
     agentServer :: UserServer' s p -> Maybe (ServerCfg p)
