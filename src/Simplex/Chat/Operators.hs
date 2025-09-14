@@ -212,7 +212,7 @@ operatorRoles :: SProtocolType p -> ServerOperator -> ServerRoles
 operatorRoles p op = case p of
   SPSMP -> smpRoles op
   SPXFTP -> xftpRoles op
-  SPNTF -> mempty
+  SPNTF -> ServerRoles {storage = False, proxy = False}
 
 conditionsAccepted :: ServerOperator -> Bool
 conditionsAccepted ServerOperator {conditionsAcceptance} = case conditionsAcceptance of
