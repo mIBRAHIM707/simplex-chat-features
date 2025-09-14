@@ -291,7 +291,7 @@ createConnection_ db userId connType entityId acId connStatus connChatVersion pe
     ent ct = if connType == ct then entityId else Nothing
 
 createIncognitoProfile_ :: DB.Connection -> UserId -> UTCTime -> Profile -> IO Int64
-createIncognitoProfile_ db userId createdAt Profile {displayName, fullName, image, defaultTimerTTL} = do
+createIncognitoProfile_ db userId createdAt Profile {displayName, fullName, image} = do
   DB.execute
     db
     [sql|
