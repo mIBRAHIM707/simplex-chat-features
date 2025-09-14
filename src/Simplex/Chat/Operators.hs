@@ -208,10 +208,11 @@ data ServerOperatorRoles = ServerOperatorRoles
   }
   deriving (Show)
 
-operatorRoles :: UserProtocol p => SProtocolType p -> ServerOperator -> ServerRoles
+operatorRoles :: SProtocolType p -> ServerOperator -> ServerRoles
 operatorRoles p op = case p of
   SPSMP -> smpRoles op
   SPXFTP -> xftpRoles op
+  SPNTF -> mempty
 
 conditionsAccepted :: ServerOperator -> Bool
 conditionsAccepted ServerOperator {conditionsAcceptance} = case conditionsAcceptance of
