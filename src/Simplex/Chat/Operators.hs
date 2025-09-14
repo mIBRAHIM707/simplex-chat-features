@@ -291,15 +291,17 @@ data PresetOperator = PresetOperator
 pOperator :: PresetOperator -> Maybe NewServerOperator
 pOperator PresetOperator {operator} = operator
 
-pServers :: UserProtocol p => SProtocolType p -> PresetOperator -> [NewUserServer p]
+pServers :: SProtocolType p -> PresetOperator -> [NewUserServer p]
 pServers p PresetOperator {smp, xftp} = case p of
   SPSMP -> smp
   SPXFTP -> xftp
+  SPNTF -> []
 
 operatorServersToUse :: SProtocolType p -> PresetOperator -> Int
 operatorServersToUse p PresetOperator {useSMP, useXFTP} = case p of
   SPSMP -> useSMP
   SPXFTP -> useXFTP
+  SPNTF -> 0
 
 presetServer' :: Bool -> ProtocolServer p -> NewUserServer p
 presetServer' enabled = presetServer enabled . (`ProtoServerWithAuth` Nothing)
