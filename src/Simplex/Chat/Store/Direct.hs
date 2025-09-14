@@ -239,16 +239,14 @@ createIncognitoProfile db User {userId} p = do
   createIncognitoProfile_ db userId createdAt p
 
 createDirectContact :: DB.Connection -> User -> Connection -> Profile -> ExceptT StoreError IO Contact
-createDirectContact db user@User {userId} conn@Connection {connId, localAlias} p@Profile {preferences, defaultTimerTTL = contactDefaultTTL} = do
+createDirectContact db user@User {userId, defaultTimerTTL = userDefaultTTL} conn@Connection {connId, localAlias} p@Profile {preferences, defaultTimerTTL = contactDefaultTTL} = do
   currentTs <- liftIO getCurrentTime
   (localDisplayName, contactId, profileId) <- createContact_ db userId p localAlias Nothing currentTs
   liftIO $ DB.execute db "UPDATE connections SET contact_id = ?, updated_at = ? WHERE connection_id = ?" (contactId, currentTs, connId)
   let profile = toLocalProfile profileId p localAlias
-      initialTTL = case (defaultTimerTTL user, contactDefaultTTL) of
-        (Just uTTL, Just cTTL) -> Just $ min uTTL cTTL
-        (Just uTTL, Nothing) -> Just uTTL
-        (Nothing, Just cTTL) -> Just cTTL
-        (Nothing, Nothing) -> Nothing
+      initialTTL = case (userDefaultTTL, contactDefaultTTL) of
+        (uTTL, Just cTTL) -> Just $ min uTTL cTTL
+        (uTTL, Nothing) -> Just uTTL
       userPreferences = case initialTTL of
         Just ttl -> setPreference SCFTimedMessages (Just $ TimedMessagesPreference {allow = FAYes, ttl = Just ttl}) emptyChatPrefs
         Nothing -> emptyChatPrefs
