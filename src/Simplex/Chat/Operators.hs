@@ -296,7 +296,7 @@ pServers p PresetOperator {smp, xftp} = case p of
   SPSMP -> smp
   SPXFTP -> xftp
 
-operatorServersToUse :: UserProtocol p => SProtocolType p -> PresetOperator -> Int
+operatorServersToUse :: SProtocolType p -> PresetOperator -> Int
 operatorServersToUse p PresetOperator {useSMP, useXFTP} = case p of
   SPSMP -> useSMP
   SPXFTP -> useXFTP
