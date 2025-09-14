@@ -2028,7 +2028,8 @@ processAgentMessageConn vr user@User {userId} corrId agentConnId agentMessage = 
       | otherwise =
           pure c
       where
-        p = fromLocalProfileWithDefault lp (user.defaultTimerTTL)
+        userDefaultTTL = (user :: User).defaultTimerTTL
+        p = fromLocalProfileWithDefault lp userDefaultTTL
         Contact {userPreferences = ctUserPrefs@Preferences {timedMessages = ctUserTMPref}} = c
         userTTL = prefParam $ getPreference SCFTimedMessages ctUserPrefs
         Profile {preferences = rcvPrefs_, defaultTimerTTL = rcvDefaultTTL} = p'

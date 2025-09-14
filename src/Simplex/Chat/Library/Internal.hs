@@ -2056,7 +2056,8 @@ agentXFTPDeleteSndFilesRemote user sndFiles = do
 
 userProfileToSend :: User -> Maybe Profile -> Maybe Contact -> Bool -> Profile
 userProfileToSend user@User {profile = p} incognitoProfile ct inGroup = do
-  let p' = fromMaybe (fromLocalProfileWithDefault p (user.defaultTimerTTL)) incognitoProfile
+  let userDefaultTTL = (user :: User).defaultTimerTTL
+      p' = fromMaybe (fromLocalProfileWithDefault p userDefaultTTL) incognitoProfile
   if inGroup
     then redactedMemberProfile p'
     else
