@@ -372,7 +372,7 @@ updatedUserServers (presetOp_, UserOperatorServers {operator, smpServers, xftpSe
       Nothing -> (stored smpServers, stored xftpServers)
       Just presetOp -> (updated SPSMP smpServers, updated SPXFTP xftpServers)
         where
-          updated :: forall p. UserProtocol p => SProtocolType p -> [UserServer p] -> [AUserServer p]
+          updated :: forall p. SProtocolType p -> [UserServer p] -> [AUserServer p]
           updated p srvs = map userServer presetSrvs <> stored (filter customServer srvs)
             where
               storedSrvs :: Map (ProtoServerWithAuth p) (UserServer p)
