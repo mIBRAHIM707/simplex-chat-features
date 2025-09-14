@@ -449,7 +449,7 @@ type ContactRequestRow = (Int64, ContactName, AgentInvId, Maybe ContactId, Int64
 
 toContactRequest :: ContactRequestRow -> UserContactRequest
 toContactRequest ((contactRequestId, localDisplayName, agentInvitationId, contactId_, userContactLinkId, agentContactConnId, profileId, displayName, fullName, image, contactLink) :. (xContactId, pqSupport, preferences, createdAt, updatedAt, minVer, maxVer)) = do
-  let profile = Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL}
+  let profile = Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL = Nothing}
       cReqChatVRange = fromMaybe (versionToRange maxVer) $ safeVersionRange minVer maxVer
    in UserContactRequest {contactRequestId, agentInvitationId, contactId_, userContactLinkId, agentContactConnId, cReqChatVRange, localDisplayName, profileId, profile, xContactId, pqSupport, createdAt, updatedAt}
 
