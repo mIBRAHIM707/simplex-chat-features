@@ -606,7 +606,7 @@ localProfileId :: LocalProfile -> ProfileId
 localProfileId LocalProfile {profileId} = profileId
 
 toLocalProfile :: ProfileId -> Profile -> LocalAlias -> LocalProfile
-toLocalProfile profileId Profile {displayName, fullName, image, contactLink, preferences} localAlias =
+toLocalProfile profileId Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL} localAlias =
   LocalProfile {profileId, displayName, fullName, image, contactLink, preferences, localAlias}
 
 fromLocalProfile :: LocalProfile -> Profile

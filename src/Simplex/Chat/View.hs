@@ -1613,7 +1613,7 @@ viewSwitchPhase = \case
   SPCompleted -> "changed address"
 
 viewUserProfileUpdated :: Profile -> Profile -> UserProfileUpdateSummary -> [StyledString]
-viewUserProfileUpdated Profile {displayName = n, fullName, image, contactLink, preferences} Profile {displayName = n', fullName = fullName', image = image', contactLink = contactLink', preferences = prefs'} summary =
+viewUserProfileUpdated Profile {displayName = n, fullName, image, contactLink, preferences, defaultTimerTTL} Profile {displayName = n', fullName = fullName', image = image', contactLink = contactLink', preferences = prefs', defaultTimerTTL = defaultTimerTTL'} summary =
   profileUpdated <> viewPrefsUpdated preferences prefs'
   where
     UserProfileUpdateSummary {updateSuccesses = s, updateFailures = f} = summary

@@ -385,7 +385,7 @@ createContact db User {userId} profile = do
   void $ createContact_ db userId profile "" Nothing currentTs
 
 createContact_ :: DB.Connection -> UserId -> Profile -> LocalAlias -> Maybe Int64 -> UTCTime -> ExceptT StoreError IO (Text, ContactId, ProfileId)
-createContact_ db userId Profile {displayName, fullName, image, contactLink, preferences} localAlias viaGroup currentTs =
+createContact_ db userId Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL} localAlias viaGroup currentTs =
   ExceptT . withLocalDisplayName db userId displayName $ \ldn -> do
     DB.execute
       db
