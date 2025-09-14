@@ -223,7 +223,7 @@ decodeChatMessageTest = describe "Chat message encoding/decoding" $ do
       #==# XInfo testProfile
   it "x.info with empty full name" $
     "{\"v\":\"1\",\"event\":\"x.info\",\"params\":{\"profile\":{\"fullName\":\"\",\"displayName\":\"alice\",\"preferences\":{\"reactions\":{\"allow\":\"yes\"},\"voice\":{\"allow\":\"yes\"}}}}}"
-      #==# XInfo Profile {displayName = "alice", fullName = "", image = Nothing, contactLink = Nothing, preferences = testChatPreferences}
+      #==# XInfo Profile {displayName = "alice", fullName = "", image = Nothing, contactLink = Nothing, preferences = testChatPreferences, defaultTimerTTL = Nothing}
   it "x.contact with xContactId" $
     "{\"v\":\"1\",\"event\":\"x.contact\",\"params\":{\"contactReqId\":\"AQIDBA==\",\"profile\":{\"fullName\":\"Alice\",\"displayName\":\"alice\",\"image\":\"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAIAQMAAAD+wSzIAAAABlBMVEX///+/v7+jQ3Y5AAAADklEQVQI12P4AIX8EAgALgAD/aNpbtEAAAAASUVORK5CYII=\",\"preferences\":{\"reactions\":{\"allow\":\"yes\"},\"voice\":{\"allow\":\"yes\"}}}}}"
       #==# XContact testProfile (Just $ XContactId "\1\2\3\4")
