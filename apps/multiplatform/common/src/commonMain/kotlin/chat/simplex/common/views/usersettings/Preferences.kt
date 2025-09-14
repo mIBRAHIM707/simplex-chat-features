@@ -1,4 +1,3 @@
-import chat.simplex.common.model.SimpleXAPI
 package chat.simplex.common.views.usersettings
 
 import SectionBottomSpacer
@@ -73,38 +72,6 @@ private fun PreferencesLayout(
     TimedMessagesFeatureSection(timedMessages) {
       applyPrefs(preferences.copy(timedMessages = TimedMessagesPreference(allow = if (it) FeatureAllowed.YES else FeatureAllowed.NO)))
     }
-    // Default Disappearing Message Timer
-    val timerOptions = listOf(0, 60, 300, 3600, 86400, 604800) // None, 1m, 5m, 1h, 1d, 7d (seconds)
-    val timerLabels = listOf(
-      stringResource(MR.strings.none),
-      "1 min",
-      "5 min",
-      "1 hour",
-      "1 day",
-      "7 days"
-    )
-  val customTimerPref = SimpleXAPI().customDisappearingMessageTime
-    var timerValue by rememberSaveable { mutableStateOf(customTimerPref.get()) }
-    val scope = rememberCoroutineScope()
-    SectionView {
-      ExposedDropDownSettingRow(
-        label = stringResource(MR.strings.default_disappearing_message_timer),
-        values = timerOptions.zip(timerLabels),
-        selected = timerOptions.indexOf(timerValue).let { if (it == -1) 0 else it },
-        onSelected = { idx ->
-          timerValue = timerOptions[idx]
-          customTimerPref.set(timerValue)
-          // Sync with backend
-          scope.launch {
-            try {
-              SimpleXAPI().setChatItemTTL(null, if (timerValue == 0) ChatItemTTL.None else ChatItemTTL.Seconds(timerValue.toLong()))
-            } catch (_: Exception) {}
-          }
-        },
-        icon = ChatFeature.TimedMessages.icon
-      )
-    }
-    SectionTextFooter(stringResource(MR.strings.default_disappearing_message_timer_desc))
     SectionDividerSpaced(true, maxBottomPadding = false)
     val allowFullDeletion = remember(preferences) { mutableStateOf(preferences.fullDelete.allow) }
     FeatureSection(ChatFeature.FullDelete, allowFullDeletion) {

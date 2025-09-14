@@ -13,11 +13,6 @@ import dev.icerock.moko.resources.compose.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import chat.simplex.common.model.ChatModel
-import chat.simplex.common.model.User
-import chat.simplex.common.model.UserInfo
-import chat.simplex.common.model.Profile
-import chat.simplex.common.model.NamedChat
-import chat.simplex.common.model.MsgContent
 import chat.simplex.common.platform.*
 import chat.simplex.res.MR
 import chat.simplex.common.ui.theme.DEFAULT_PADDING
@@ -31,12 +26,12 @@ fun SetDeliveryReceiptsView(m: ChatModel) {
       if (currentUser != null) {
         withBGApi {
           try {
-            ChatModel.controller.apiSetAllContactReceipts(currentUser.remoteHostId, enable = true)
+            m.controller.apiSetAllContactReceipts(currentUser.remoteHostId, enable = true)
             m.currentUser.value = currentUser.copy(sendRcptsContacts = true)
             m.setDeliveryReceipts.value = false
-            ChatModel.controller.appPrefs.privacyDeliveryReceiptsSet.set(true)
+            m.controller.appPrefs.privacyDeliveryReceiptsSet.set(true)
             try {
-              val users = ChatModel.controller.listUsers(currentUser.remoteHostId)
+              val users = m.controller.listUsers(currentUser.remoteHostId)
               m.users.clear()
               m.users.addAll(users)
             } catch (e: Exception) {

@@ -21,7 +21,6 @@ cabal-dev
 *.chs.h
 *.dyn_o
 *.dyn_hi
-*.pem
 .hpc
 .hsenv
 .cabal-sandbox/
@@ -36,6 +35,7 @@ cabal.project.local~
 .HTF/
 .ghc.environment.*
 stack.yaml.lock
+*.pem
 
 # Chat database
 *.db

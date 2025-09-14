@@ -157,10 +157,9 @@ import Simplex.Chat.Messages
 import Simplex.Chat.Messages.CIContent
 import Simplex.Chat.Protocol
 import Simplex.Chat.Store.Direct
-import Simplex.Chat.Store.Shared (StoreError(..), ContactRequestRow, toContactRequest, toFileInfo, fileInfoQuery, toPendingContactConnection, constraintError, insertedRowId, createWithRandomId')
 import Simplex.Chat.Store.Groups
-import Simplex.Chat.Store.Profiles (getUser, getUserByContactId)
 import Simplex.Chat.Store.NoteFolders
+import Simplex.Chat.Store.Shared
 import Simplex.Chat.Types
 import Simplex.Chat.Types.Shared
 import Simplex.Messaging.Agent.Protocol (AgentMsgId, ConnId, ConnShortLink, ConnectionMode (..), MsgMeta (..), UserId)

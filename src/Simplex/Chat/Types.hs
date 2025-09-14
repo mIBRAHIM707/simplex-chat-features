@@ -132,8 +132,7 @@ data User = User
     sendRcptsContacts :: Bool,
     sendRcptsSmallGroups :: Bool,
     userMemberProfileUpdatedAt :: Maybe UTCTime,
-    uiThemes :: Maybe UIThemeEntityOverrides,
-    defaultTimerTTL :: Int -- in seconds, default 86400 (1 day)
+    uiThemes :: Maybe UIThemeEntityOverrides
   }
   deriving (Show)
 

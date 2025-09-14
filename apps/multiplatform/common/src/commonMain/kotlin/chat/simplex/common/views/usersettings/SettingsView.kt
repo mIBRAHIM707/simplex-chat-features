@@ -22,12 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
 import chat.simplex.common.model.*
-import chat.simplex.common.model.ChatModel
-import chat.simplex.common.model.User
-import chat.simplex.common.model.UserInfo
-import chat.simplex.common.model.Profile
-import chat.simplex.common.model.NamedChat
-import chat.simplex.common.model.MsgContent
 import chat.simplex.common.model.ChatController.appPrefs
 import chat.simplex.common.platform.*
 import chat.simplex.common.ui.theme.*

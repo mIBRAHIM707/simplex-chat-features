@@ -237,10 +237,6 @@ toConnection vr ((connId, acId, connLevel, viaContact, viaUserContactLink, BI vi
     entityId_ ConnSndFile = sndFileId
     entityId_ ConnUserContact = userContactLinkId
 
--- | Get the minimum default disappearing timer between two users
-getInitialDisappearingTimer :: User -> User -> Int
-getInitialDisappearingTimer userA userB = min (defaultTimerTTL userA) (defaultTimerTTL userB)
-
 toMaybeConnection :: VersionRangeChat -> MaybeConnectionRow -> Maybe Connection
 toMaybeConnection vr ((Just connId, Just agentConnId, Just connLevel, viaContact, viaUserContactLink, Just viaGroupLink, groupLinkId, customUserProfileId, Just connStatus, Just connType, Just contactConnInitiated, Just localAlias) :. (contactId, groupMemberId, sndFileId, rcvFileId, userContactLinkId) :. (Just createdAt, code_, verifiedAt_, Just pqSupport, Just pqEncryption, pqSndEnabled_, pqRcvEnabled_, Just authErrCounter, Just quotaErrCounter, connChatVersion, Just minVer, Just maxVer)) =
   Just $ toConnection vr ((connId, agentConnId, connLevel, viaContact, viaUserContactLink, viaGroupLink, groupLinkId, customUserProfileId, connStatus, connType, contactConnInitiated, localAlias) :. (contactId, groupMemberId, sndFileId, rcvFileId, userContactLinkId) :. (createdAt, code_, verifiedAt_, pqSupport, pqEncryption, pqSndEnabled_, pqRcvEnabled_, authErrCounter, quotaErrCounter, connChatVersion, minVer, maxVer))
@@ -384,10 +380,8 @@ setCommandConnId db User {userId} cmdId connId = do
     (connId, updatedAt, userId, cmdId)
 
 createContact :: DB.Connection -> User -> Profile -> ExceptT StoreError IO ()
-createContact db user@User {userId} profile = do
+createContact db User {userId} profile = do
   currentTs <- liftIO getCurrentTime
-  -- If this is a direct chat, set the chat's initial disappearing timer to the user's default
-  -- (the actual minimum logic should be applied when both users are known, e.g. in conversation start logic)
   void $ createContact_ db userId profile "" Nothing currentTs
 
 createContact_ :: DB.Connection -> UserId -> Profile -> LocalAlias -> Maybe Int64 -> UTCTime -> ExceptT StoreError IO (Text, ContactId, ProfileId)
@@ -459,37 +453,23 @@ toContactRequest ((contactRequestId, localDisplayName, agentInvitationId, contac
       cReqChatVRange = fromMaybe (versionToRange maxVer) $ safeVersionRange minVer maxVer
    in UserContactRequest {contactRequestId, agentInvitationId, contactId_, userContactLinkId, agentContactConnId, cReqChatVRange, localDisplayName, profileId, profile, xContactId, pqSupport, createdAt, updatedAt}
 
-
 userQuery :: Query
 userQuery =
   [sql|
     SELECT u.user_id, u.agent_user_id, u.contact_id, ucp.contact_profile_id, u.active_user, u.active_order, u.local_display_name, ucp.full_name, ucp.image, ucp.contact_link, ucp.preferences,
-      u.show_ntfs, u.send_rcpts_contacts, u.send_rcpts_small_groups, u.view_pwd_hash, u.view_pwd_salt, u.user_member_profile_updated_at, u.ui_themes, u.default_timer_ttl
+      u.show_ntfs, u.send_rcpts_contacts, u.send_rcpts_small_groups, u.view_pwd_hash, u.view_pwd_salt, u.user_member_profile_updated_at, u.ui_themes
     FROM users u
     JOIN contacts uct ON uct.contact_id = u.contact_id
     JOIN contact_profiles ucp ON ucp.contact_profile_id = uct.contact_profile_id
   |]
 
-toUser :: (UserId, UserId, ContactId, ProfileId, BoolInt, Int64, ContactName, Text, Maybe ImageData, Maybe ConnLinkContact, Maybe Preferences) :. (BoolInt, BoolInt, BoolInt, Maybe B64UrlByteString, Maybe B64UrlByteString, Maybe UTCTime, Maybe UIThemeEntityOverrides, Int) -> User
-toUser ((userId, auId, userContactId, profileId, BI activeUser, activeOrder, displayName, fullName, image, contactLink, userPreferences)
-      :. (BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, viewPwdHash_, viewPwdSalt_, userMemberProfileUpdatedAt, uiThemes, defaultTimerTTL)) =
-  User
-    { userId
-    , agentUserId = AgentUserId auId
-    , userContactId
-    , localDisplayName = displayName
-    , profile = LocalProfile { profileId, displayName, fullName, image, contactLink, preferences = userPreferences, localAlias = "" }
-    , fullPreferences = mergePreferences Nothing userPreferences
-    , activeUser
-    , activeOrder
-    , viewPwdHash = liftA2 UserPwdHash viewPwdHash_ viewPwdSalt_
-    , showNtfs
-    , sendRcptsContacts
-    , sendRcptsSmallGroups
-    , userMemberProfileUpdatedAt
-    , uiThemes
-    , defaultTimerTTL
-    }
+toUser :: (UserId, UserId, ContactId, ProfileId, BoolInt, Int64, ContactName, Text, Maybe ImageData, Maybe ConnLinkContact, Maybe Preferences) :. (BoolInt, BoolInt, BoolInt, Maybe B64UrlByteString, Maybe B64UrlByteString, Maybe UTCTime, Maybe UIThemeEntityOverrides) -> User
+toUser ((userId, auId, userContactId, profileId, BI activeUser, activeOrder, displayName, fullName, image, contactLink, userPreferences) :. (BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, viewPwdHash_, viewPwdSalt_, userMemberProfileUpdatedAt, uiThemes)) =
+  User {userId, agentUserId = AgentUserId auId, userContactId, localDisplayName = displayName, profile, activeUser, activeOrder, fullPreferences, showNtfs, sendRcptsContacts, sendRcptsSmallGroups, viewPwdHash, userMemberProfileUpdatedAt, uiThemes}
+  where
+    profile = LocalProfile {profileId, displayName, fullName, image, contactLink, preferences = userPreferences, localAlias = ""}
+    fullPreferences = mergePreferences Nothing userPreferences
+    viewPwdHash = UserPwdHash <$> viewPwdHash_ <*> viewPwdSalt_
 
 toPendingContactConnection :: (Int64, ConnId, ConnStatus, Maybe ByteString, Maybe Int64, Maybe GroupLinkId, Maybe Int64, Maybe ConnReqInvitation, Maybe (ConnShortLink 'CMInvitation), LocalAlias, UTCTime, UTCTime) -> PendingContactConnection
 toPendingContactConnection (pccConnId, acId, pccConnStatus, connReqHash, viaUserContactLink, groupLinkId, customUserProfileId, connReqInv, shortLinkInv, localAlias, createdAt, updatedAt) =

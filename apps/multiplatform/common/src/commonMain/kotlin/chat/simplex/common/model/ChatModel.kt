@@ -1,4 +1,3 @@
-import chat.simplex.common.model.SimpleXAPI
 package chat.simplex.common.model
 
 import androidx.compose.material.*
@@ -49,34 +48,6 @@ import kotlin.time.*
  * */
 @Stable
 object ChatModel {
-  /**
-   * Get the lowest disappearing message timer between the current user and the contact.
-   * If only one is available, use that. If neither, return 0 (None).
-   */
-  suspend fun getLowestDisappearingTimerWithContact(rhId: Long?, contactId: Long): Int {
-  val api = SimpleXAPI()
-    // Get current user's timer
-    val myTTL = try { api.getChatItemTTL(rhId).seconds } catch (_: Exception) { 0 }
-    // Get contact's timer from chat/contact info if available
-    val contactChat = getContactChat(contactId)
-    val contactTTL = contactChat?.chatInfo?.let {
-      if (it is ChatInfo.Direct) it.contact.timedMessagesTTL ?: 0 else 0
-    } ?: 0
-    return if (myTTL == 0 || contactTTL == 0) maxOf(myTTL, contactTTL) else minOf(myTTL, contactTTL)
-  }
-
-  /**
-   * When sending the first message in a new chat, set the TTL to the lowest between users.
-   * Call this before sending the first message.
-   */
-  suspend fun applyInitialDisappearingTimerIfNeeded(rhId: Long?, contactId: Long) {
-    val ttl = getLowestDisappearingTimerWithContact(rhId, contactId)
-    if (ttl > 0) {
-      try {
-        SimpleXAPI().setChatItemTTL(rhId, ChatItemTTL.Seconds(ttl.toLong()))
-      } catch (_: Exception) {}
-    }
-  }
   val controller: ChatController = ChatController
   val setDeliveryReceipts = mutableStateOf(false)
   val currentUser = mutableStateOf<User?>(null)
