@@ -1,16 +1,3 @@
--- | Delete all connections for a group member
-deleteMemberConnection' :: GroupMember -> Bool -> CM ()
-deleteMemberConnection' m _withMessages =
-  withStore' $ \db ->
-    forM_ (memberConnections m) $ \connId ->
-      deleteConnectionRecord db user connId
-
--- | Delete all connections for a group member (no Bool flag)
-deleteMemberConnection :: GroupMember -> CM ()
-deleteMemberConnection m =
-  withStore' $ \db ->
-    forM_ (memberConnections m) $ \connId ->
-      deleteConnectionRecord db user connId
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -126,6 +113,20 @@ processAgentMessage corrId connId msg = do
 -- - without ACK the message delivery will be stuck,
 -- - with ACK message will be lost, as it failed to be saved.
 -- Full app restart is likely to resolve database condition and the message will be received and processed again.
+
+deleteMemberConnection' :: GroupMember -> Bool -> CM ()
+deleteMemberConnection' m _withMessages =
+  withStore' $ \db ->
+    forM_ (memberConnections m) $ \connId ->
+      deleteConnectionRecord db user connId
+
+-- | Delete all connections for a group member (no Bool flag)
+deleteMemberConnection :: GroupMember -> CM ()
+deleteMemberConnection m =
+  withStore' $ \db ->
+    forM_ (memberConnections m) $ \connId ->
+      deleteConnectionRecord db user connId
+
 critical :: CM a -> CM a
 critical a =
   a `catchChatError` \case
