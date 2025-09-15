@@ -2624,12 +2624,12 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     xGrpLeave :: GroupInfo -> GroupMember -> RcvMessage -> UTCTime -> CM ()
     xGrpLeave gInfo m msg brokerTs = do
-  deleteMemberConnection m
-  -- member record is not deleted to allow creation of "member left" chat item
-  withStore' $ \db -> updateGroupMemberStatus db (userId user) m GSMemLeft
-  ci <- saveRcvChatItemNoParse user (CDGroupRcv gInfo m) msg brokerTs (CIRcvGroupEvent RGEMemberLeft)
-  groupMsgToView gInfo ci
-  toView $ CEvtLeftMember user gInfo m {memberStatus = GSMemLeft}
+      deleteMemberConnection m
+      -- member record is not deleted to allow creation of "member left" chat item
+      withStore' $ \db -> updateGroupMemberStatus db (userId user) m GSMemLeft
+      ci <- saveRcvChatItemNoParse user (CDGroupRcv gInfo m) msg brokerTs (CIRcvGroupEvent RGEMemberLeft)
+      groupMsgToView gInfo ci
+      toView $ CEvtLeftMember user gInfo m {memberStatus = GSMemLeft}
 
     xGrpDel :: GroupInfo -> GroupMember -> RcvMessage -> UTCTime -> CM ()
     xGrpDel gInfo@GroupInfo {membership} m@GroupMember {memberRole} msg brokerTs = do
