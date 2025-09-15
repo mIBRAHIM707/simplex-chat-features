@@ -42,7 +42,7 @@ import qualified Data.UUID.V4 as V4
 import Data.Word (Word32)
 import Simplex.Chat.Call
 import Simplex.Chat.Controller
-import Simplex.Chat.Library.Internal
+import Simplex.Chat.Library.Internal hiding (deleteMemberConnection)
 import Simplex.Chat.Messages
 import Simplex.Chat.Messages.CIContent
 import Simplex.Chat.Messages.CIContent.Events
