@@ -1,3 +1,16 @@
+-- | Delete all connections for a group member
+deleteMemberConnection' :: GroupMember -> Bool -> CM ()
+deleteMemberConnection' m _withMessages =
+  withStore' $ \db ->
+    forM_ (memberConnections m) $ \connId ->
+      deleteConnectionRecord db user connId
+
+-- | Delete all connections for a group member (no Bool flag)
+deleteMemberConnection :: GroupMember -> CM ()
+deleteMemberConnection m =
+  withStore' $ \db ->
+    forM_ (memberConnections m) $ \connId ->
+      deleteConnectionRecord db user connId
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE FlexibleContexts #-}
