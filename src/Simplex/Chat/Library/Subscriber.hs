@@ -2607,7 +2607,9 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           -- member records are not deleted to keep history
           members <- withStore' $ \db -> getGroupMembers db vr user gInfo
           deleteMembersConnections user members
-          withStore' $ \db -> updateGroupMemberStatus db (userId user :: UserId) membership GSMemRemoved
+          withStore' $ \db -> do
+            let User {userId = uid} = user
+            updateGroupMemberStatus db (uid :: UserId) membership GSMemRemoved
           when withMessages $ deleteMessages membership SMDSnd
           deleteMemberItem RGEUserDeleted
           toView $ CEvtDeletedMemberUser user gInfo {membership = membership {memberStatus = GSMemRemoved}} m withMessages
@@ -2641,7 +2643,9 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     xGrpLeave gInfo m msg brokerTs = do
       deleteMemberConnection m
       -- member record is not deleted to allow creation of "member left" chat item
-      withStore' $ \db -> updateGroupMemberStatus db (userId user :: UserId) m GSMemLeft
+  withStore' $ \db -> do
+    let User {userId = uid} = user
+    updateGroupMemberStatus db (uid :: UserId) m GSMemLeft
       ci <- saveRcvChatItemNoParse user (CDGroupRcv gInfo m) msg brokerTs (CIRcvGroupEvent RGEMemberLeft)
       groupMsgToView gInfo ci
       toView $ CEvtLeftMember user gInfo m {memberStatus = GSMemLeft}
@@ -2651,7 +2655,9 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       when (memberRole /= GROwner) $ throwChatError $ CEGroupUserRole gInfo GROwner
       ms <- withStore' $ \db -> do
         members <- getGroupMembers db vr user gInfo
-        updateGroupMemberStatus db (Simplex.Chat.Types.userId user :: UserId) membership GSMemGroupDeleted
+        do
+          let User {userId = uid} = user
+          updateGroupMemberStatus db (uid :: UserId) membership GSMemGroupDeleted
         pure members
       -- member records are not deleted to keep history
       deleteMembersConnections user ms
