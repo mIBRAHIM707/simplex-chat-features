@@ -239,7 +239,9 @@ createIncognitoProfile db User {userId} p = do
   createIncognitoProfile_ db userId createdAt p
 
 createDirectContact :: DB.Connection -> User -> Connection -> Profile -> ExceptT StoreError IO Contact
-createDirectContact db user@User {userId, defaultTimerTTL = userDefaultTTL} conn@Connection {connId, localAlias} p@Profile {preferences, defaultTimerTTL = contactDefaultTTL} = do
+createDirectContact db user conn@Connection {connId, localAlias} p = do
+  let userDefaultTTL = let User {defaultTimerTTL = ttl} = user in ttl
+      contactDefaultTTL = let Profile {defaultTimerTTL = ttl} = p in ttl
   currentTs <- liftIO getCurrentTime
   (localDisplayName, contactId, profileId) <- createContact_ db userId p localAlias Nothing currentTs
   liftIO $ DB.execute db "UPDATE connections SET contact_id = ?, updated_at = ? WHERE connection_id = ?" (contactId, currentTs, connId)

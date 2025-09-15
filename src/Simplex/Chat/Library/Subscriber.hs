@@ -352,7 +352,9 @@ processAgentMsgRcvFile _corrId aFileId msg = do
               toView $ CEvtRcvFileError user aci_ e ft
 
 processAgentMessageConn :: VersionRangeChat -> User -> ACorrId -> ConnId -> AEvent 'AEConn -> CM ()
-processAgentMessageConn vr user@User {userId, defaultTimerTTL = userTTL} corrId agentConnId agentMessage = do
+processAgentMessageConn vr user corrId agentConnId agentMessage = do
+  let userTTL = let User {defaultTimerTTL = ttl} = user in ttl
+      userId = let User {userId = uid} = user in uid
   -- Missing connection/entity errors here will be sent to the view but not shown as CRITICAL alert,
   -- as in this case no need to ACK message - we can't process messages for this connection anyway.
   -- SEDBException will be re-trown as CRITICAL as it is likely to indicate a temporary database condition
@@ -2031,7 +2033,7 @@ processAgentMessageConn vr user@User {userId, defaultTimerTTL = userTTL} corrId 
         p = fromLocalProfileWithDefault lp userTTL
         Contact {userPreferences = ctUserPrefs@Preferences {timedMessages = ctUserTMPref}} = c
         userTTL = fromMaybe 86400 userTTL_  -- Use user's defaultTimerTTL (Int64) with fallback
-        userTTL_ = (user :: User).defaultTimerTTL  -- Get from user object
+        userTTL_ = let User {defaultTimerTTL = ttl} = user in ttl  -- Get from user object
         Profile {preferences = rcvPrefs_, defaultTimerTTL = rcvDefaultTTL} = p'
         rcvTTL = prefParam $ getPreference SCFTimedMessages rcvPrefs_
         ctUserPrefs' =
