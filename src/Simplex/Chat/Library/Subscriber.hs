@@ -2031,7 +2031,7 @@ processAgentMessageConn vr user@User {userId, defaultTimerTTL = userTTL} corrId 
         p = fromLocalProfileWithDefault lp userTTL
         Contact {userPreferences = ctUserPrefs@Preferences {timedMessages = ctUserTMPref}} = c
         userTTL = fromMaybe 86400 userTTL_  -- Use user's defaultTimerTTL (Int64) with fallback
-        userTTL_ = user.defaultTimerTTL  -- Get from user object
+        userTTL_ = (user :: User).defaultTimerTTL  -- Get from user object
         Profile {preferences = rcvPrefs_, defaultTimerTTL = rcvDefaultTTL} = p'
         rcvTTL = prefParam $ getPreference SCFTimedMessages rcvPrefs_
         ctUserPrefs' =
