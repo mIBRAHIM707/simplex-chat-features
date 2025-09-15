@@ -2015,7 +2015,7 @@ processAgentMessageConn vr user@User {userId, defaultTimerTTL = userTTL} corrId 
     processContactProfileUpdate c@Contact {profile = lp} p' createItems
       | p /= p' = do
           c' <- withStore $ \db ->
-            if userTTL == rcvTTL
+            if Just userTTL == rcvTTL
               then updateContactProfile db user c p'
               else do
                 c' <- liftIO $ updateContactUserPreferences db user c ctUserPrefs'
@@ -2030,7 +2030,8 @@ processAgentMessageConn vr user@User {userId, defaultTimerTTL = userTTL} corrId 
       where
         p = fromLocalProfileWithDefault lp userTTL
         Contact {userPreferences = ctUserPrefs@Preferences {timedMessages = ctUserTMPref}} = c
-        userTTL = prefParam $ getPreference SCFTimedMessages ctUserPrefs
+        userTTL = fromMaybe 86400 userTTL_  -- Use user's defaultTimerTTL (Int64) with fallback
+        userTTL_ = defaultTimerTTL user  -- Get from user object
         Profile {preferences = rcvPrefs_, defaultTimerTTL = rcvDefaultTTL} = p'
         rcvTTL = prefParam $ getPreference SCFTimedMessages rcvPrefs_
         ctUserPrefs' =
@@ -2045,7 +2046,9 @@ processAgentMessageConn vr user@User {userId, defaultTimerTTL = userTTL} corrId 
               ctUserTMPref' = case ctUserTMPref of
                 Just userTM -> Just (userTM :: TimedMessagesPreference) {ttl = negotiatedTTL}
                 _
-                  | Just nTTL <- negotiatedTTL, nTTL /= userDefaultTTL -> Just (userDefault :: TimedMessagesPreference) {ttl = negotiatedTTL}
+                  | Just nTTL <- negotiatedTTL, Just uTTL <- userDefaultTTL, nTTL /= uTTL -> case userDefault of
+                      Just pref -> Just (pref {ttl = negotiatedTTL})
+                      Nothing -> Just (TimedMessagesPreference {allow = FAYes, ttl = negotiatedTTL})
                   | otherwise -> Nothing
            in setPreference_ SCFTimedMessages ctUserTMPref' ctUserPrefs
         createProfileUpdatedItem c' =
