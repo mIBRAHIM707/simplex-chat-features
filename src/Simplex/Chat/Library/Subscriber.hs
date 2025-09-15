@@ -2643,9 +2643,9 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     xGrpLeave gInfo m msg brokerTs = do
       deleteMemberConnection m
       -- member record is not deleted to allow creation of "member left" chat item
-  withStore' $ \db -> do
-    let User {userId = uid} = user
-    updateGroupMemberStatus db (uid :: UserId) m GSMemLeft
+      withStore' $ \db -> do
+        let User {userId = uid} = user
+        updateGroupMemberStatus db (uid :: UserId) m GSMemLeft
       ci <- saveRcvChatItemNoParse user (CDGroupRcv gInfo m) msg brokerTs (CIRcvGroupEvent RGEMemberLeft)
       groupMsgToView gInfo ci
       toView $ CEvtLeftMember user gInfo m {memberStatus = GSMemLeft}

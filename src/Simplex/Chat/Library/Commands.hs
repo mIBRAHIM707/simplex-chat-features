@@ -1448,9 +1448,15 @@ processChatCommand' vr = \case
   GetChatItemTTL -> withUser' $ \User {userId} -> do
     processChatCommand $ APIGetChatItemTTL userId
   APISetUserDefaultTimerTTL userId newTTL -> withUserId userId $ \user -> do
+    -- Validate TTL: must be non-negative and not unreasonably large (1 year cap)
+    let maxTTL = 31536000 :: Int64 -- 1 year in seconds
+    when (newTTL < 0 || newTTL > maxTTL) $ throwChatError $ CECommandError "invalid default_timer_ttl"
     withFastStore' $ \db -> setUserDefaultTimerTTL db user newTTL
     ok user
   SetUserDefaultTimerTTL newTTL -> withUser' $ \User {userId} -> do
+    -- Validate TTL locally before dispatching the API command
+    let maxTTL = 31536000 :: Int64
+    when (newTTL < 0 || newTTL > maxTTL) $ throwChatError $ CECommandError "invalid default_timer_ttl"
     processChatCommand $ APISetUserDefaultTimerTTL userId newTTL
   APIGetUserDefaultTimerTTL userId -> withUserId' userId $ \user -> do
     ttl <- withFastStore' (`getUserDefaultTimerTTL` user)
