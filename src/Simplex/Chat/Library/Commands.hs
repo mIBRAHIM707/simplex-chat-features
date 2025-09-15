@@ -1429,7 +1429,7 @@ processChatCommand' vr = \case
       CTDirect -> withFastStore' (`getDirectChatTTL` chatId)
       CTGroup -> withFastStore' (`getGroupChatTTL` chatId)
       _ -> throwChatError $ CECommandError "not supported"
-    pure $ CRChatItemTTL user ttl
+    pure $ CRChatItemTTL {user, chatItemTTL = ttl}
   APISetChatItemTTL userId newTTL -> withUserId userId $ \user ->
     checkStoreNotChanged $
       withChatLock "setChatItemTTL" $ do
@@ -1782,13 +1782,12 @@ processChatCommand' vr = \case
     pure $ CRUserContactLinkCreated user ccLink'
   CreateMyAddress short -> withUser $ \User {userId} ->
     processChatCommand $ APICreateMyAddress userId short
-  APIDeleteMyAddress userId -> withUserId userId $ \user@User {profile = p} -> do
+  APIDeleteMyAddress userId -> withUserId userId $ \user@User {profile = p, defaultTimerTTL = userTTL} -> do
     conns <- withFastStore $ \db -> getUserAddressConnections db vr user
     withChatLock "deleteMyAddress" $ do
       deleteAgentConnectionsAsync $ map aConnId conns
       withFastStore' (`deleteUserAddress` user)
-    let userDefaultTTL = (user :: User).defaultTimerTTL
-        p' = (fromLocalProfileWithDefault p userDefaultTTL :: Profile) {contactLink = Nothing}
+    let p' = (fromLocalProfileWithDefault p userTTL :: Profile) {contactLink = Nothing}
     r <- updateProfile_ user p' $ withFastStore' $ \db -> setUserProfileContactLink db user Nothing
     let user' = case r of
           CRUserProfileUpdated u' _ _ _ -> u'
@@ -1800,15 +1799,13 @@ processChatCommand' vr = \case
     CRUserContactLink user <$> withFastStore (`getUserAddress` user)
   ShowMyAddress -> withUser' $ \User {userId} ->
     processChatCommand $ APIShowMyAddress userId
-  APISetProfileAddress userId False -> withUserId userId $ \user@User {profile = p} -> do
-    let userDefaultTTL = (user :: User).defaultTimerTTL
-        p' = (fromLocalProfileWithDefault p userDefaultTTL :: Profile) {contactLink = Nothing}
+  APISetProfileAddress userId False -> withUserId userId $ \user@User {profile = p, defaultTimerTTL = userTTL} -> do
+    let p' = (fromLocalProfileWithDefault p userTTL :: Profile) {contactLink = Nothing}
     updateProfile_ user p' $ withFastStore' $ \db -> setUserProfileContactLink db user Nothing
-  APISetProfileAddress userId True -> withUserId userId $ \user@User {profile = p} -> do
+  APISetProfileAddress userId True -> withUserId userId $ \user@User {profile = p, defaultTimerTTL = userTTL} -> do
     ucl@UserContactLink {connLinkContact = CCLink cReq _} <- withFastStore (`getUserAddress` user)
     -- TODO [short links] replace with short links
-    let userDefaultTTL = (user :: User).defaultTimerTTL
-        p' = (fromLocalProfileWithDefault p userDefaultTTL :: Profile) {contactLink = Just $ CLFull cReq}
+    let p' = (fromLocalProfileWithDefault p userTTL :: Profile) {contactLink = Just $ CLFull cReq}
     updateProfile_ user p' $ withFastStore' $ \db -> setUserProfileContactLink db user $ Just ucl
   SetProfileAddress onOff -> withUser $ \User {userId} ->
     processChatCommand $ APISetProfileAddress userId onOff

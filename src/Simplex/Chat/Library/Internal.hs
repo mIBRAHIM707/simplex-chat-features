@@ -2055,9 +2055,8 @@ agentXFTPDeleteSndFilesRemote user sndFiles = do
             Right sfd -> partitionSndDescr xsfs filesWithoutDescr ((aFileId, sfd) : filesWithDescr)
 
 userProfileToSend :: User -> Maybe Profile -> Maybe Contact -> Bool -> Profile
-userProfileToSend user@User {profile = p} incognitoProfile ct inGroup = do
-  let userDefaultTTL = (user :: User).defaultTimerTTL
-      p' = fromMaybe (fromLocalProfileWithDefault p userDefaultTTL) incognitoProfile
+userProfileToSend user@User {profile = p, defaultTimerTTL = userTTL} incognitoProfile ct inGroup = do
+  let p' = fromMaybe (fromLocalProfileWithDefault p userTTL) incognitoProfile
   if inGroup
     then redactedMemberProfile p'
     else
