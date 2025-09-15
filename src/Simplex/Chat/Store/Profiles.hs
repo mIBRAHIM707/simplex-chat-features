@@ -153,7 +153,7 @@ createUserRecordAt db (AgentUserId auId) Profile {displayName, fullName, image, 
       (profileId, displayName, userId, BI True, currentTs, currentTs, currentTs)
     contactId <- insertedRowId db
     DB.execute db "UPDATE users SET contact_id = ? WHERE user_id = ?" (contactId, userId)
-    pure $ toUser $ (userId, auId, contactId, profileId, BI activeUser, order, displayName, fullName, image, Nothing, userPreferences) :. (BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, Nothing, Nothing, Nothing, Nothing, fromMaybe (86400 :: Int64) (fromIntegral <$> defaultTimerTTL))
+    pure $ toUser $ (userId, auId, contactId, profileId, BI activeUser, order, displayName, fullName, image, Nothing, userPreferences) :. (BI showNtfs, BI sendRcptsContacts, BI sendRcptsSmallGroups, Nothing, Nothing, Nothing, Nothing, fromMaybe (86400 :: Int64) defaultTimerTTL)
 
 -- TODO [mentions]
 getUsersInfo :: DB.Connection -> IO [UserInfo]
@@ -293,13 +293,13 @@ updateUserProfile db user p'
   | displayName == newName = liftIO $ do
       updateContactProfile_ db userId profileId p'
       currentTs <- getCurrentTime
-      DB.execute db "UPDATE users SET default_timer_ttl = ?, updated_at = ? WHERE user_id = ?" (fromMaybe (86400 :: Int64) (fromIntegral <$> profileDefaultTTL), currentTs, userId)
+      DB.execute db "UPDATE users SET default_timer_ttl = ?, updated_at = ? WHERE user_id = ?" (fromMaybe (86400 :: Int64) profileDefaultTTL, currentTs, userId)
       userMemberProfileUpdatedAt' <- updateUserMemberProfileUpdatedAt_ currentTs
       pure user {profile, fullPreferences, userMemberProfileUpdatedAt = userMemberProfileUpdatedAt', defaultTimerTTL = fromMaybe 86400 profileDefaultTTL}
   | otherwise =
       checkConstraint SEDuplicateName . liftIO $ do
         currentTs <- getCurrentTime
-        DB.execute db "UPDATE users SET local_display_name = ?, default_timer_ttl = ?, updated_at = ? WHERE user_id = ?" (newName, fromMaybe (86400 :: Int64) (fromIntegral <$> profileDefaultTTL), currentTs, userId)
+        DB.execute db "UPDATE users SET local_display_name = ?, default_timer_ttl = ?, updated_at = ? WHERE user_id = ?" (newName, fromMaybe (86400 :: Int64) profileDefaultTTL, currentTs, userId)
         userMemberProfileUpdatedAt' <- updateUserMemberProfileUpdatedAt_ currentTs
         DB.execute
           db
@@ -942,10 +942,10 @@ setUserUIThemes db User {userId} uiThemes = do
 
 getUserDefaultTimerTTL :: DB.Connection -> User -> IO Int
 getUserDefaultTimerTTL db User {userId} =
-  fmap (fromIntegral . fromMaybe (86400 :: Int64)) . maybeFirstRow fromOnly $
+  fmap (fromMaybe (86400 :: Int64)) . maybeFirstRow fromOnly $
     DB.query db "SELECT default_timer_ttl FROM users WHERE user_id = ? LIMIT 1" (Only userId)
 
 setUserDefaultTimerTTL :: DB.Connection -> User -> Int -> IO ()
 setUserDefaultTimerTTL db User {userId} defaultTimerTTL = do
   updatedAt <- getCurrentTime
-  DB.execute db "UPDATE users SET default_timer_ttl = ?, updated_at = ? WHERE user_id = ?" (fromIntegral defaultTimerTTL :: Int64, updatedAt, userId)
+  DB.execute db "UPDATE users SET default_timer_ttl = ?, updated_at = ? WHERE user_id = ?" (defaultTimerTTL, updatedAt, userId)
