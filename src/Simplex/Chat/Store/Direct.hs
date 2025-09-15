@@ -248,7 +248,7 @@ createDirectContact db user@User {userId, defaultTimerTTL = userDefaultTTL} conn
         (uTTL, Just cTTL) -> Just $ min uTTL cTTL
         (uTTL, Nothing) -> Just uTTL
       userPreferences = case initialTTL of
-        Just ttl -> setPreference_ SCFTimedMessages (Just $ TimedMessagesPreference {allow = FAYes, ttl = Just ttl}) emptyChatPrefs
+        Just ttl -> setPreference_ SCFTimedMessages (Just $ TimedMessagesPreference {allow = FAYes, ttl = Just (fromIntegral ttl)}) emptyChatPrefs
         Nothing -> emptyChatPrefs
       mergedPreferences = contactUserPreferences user userPreferences preferences $ connIncognito conn
   pure $

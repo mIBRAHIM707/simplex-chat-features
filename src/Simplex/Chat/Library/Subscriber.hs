@@ -2038,9 +2038,9 @@ processAgentMessageConn vr user@User {userId, defaultTimerTTL = userTTL} corrId 
               userDefaultTTL = prefParam userDefault
               -- If both users have default timers, use the minimum
               negotiatedTTL = case (userDefaultTTL, rcvDefaultTTL) of
-                (Just uTTL, Just rTTL) -> Just $ min uTTL rTTL
+                (Just uTTL, Just rTTL) -> Just $ min uTTL (fromIntegral rTTL)
                 (Just uTTL, Nothing) -> Just uTTL
-                (Nothing, Just rTTL) -> Just rTTL
+                (Nothing, Just rTTL) -> Just (fromIntegral rTTL)
                 (Nothing, Nothing) -> Nothing
               ctUserTMPref' = case ctUserTMPref of
                 Just userTM -> Just (userTM :: TimedMessagesPreference) {ttl = negotiatedTTL}
