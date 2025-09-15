@@ -2651,7 +2651,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       when (memberRole /= GROwner) $ throwChatError $ CEGroupUserRole gInfo GROwner
       ms <- withStore' $ \db -> do
         members <- getGroupMembers db vr user gInfo
-        updateGroupMemberStatus db (userId user :: UserId) membership GSMemGroupDeleted
+        updateGroupMemberStatus db (Simplex.Chat.Types.userId user :: UserId) membership GSMemGroupDeleted
         pure members
       -- member records are not deleted to keep history
       deleteMembersConnections user ms
