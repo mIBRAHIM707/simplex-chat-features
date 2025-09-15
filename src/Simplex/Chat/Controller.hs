@@ -389,8 +389,8 @@ data ChatCommand
   | SetChatItemTTL Int64
   | APIGetChatItemTTL UserId
   | GetChatItemTTL
-  | APISetUserDefaultTimerTTL UserId Int
-  | SetUserDefaultTimerTTL Int
+  | APISetUserDefaultTimerTTL UserId Int64
+  | SetUserDefaultTimerTTL Int64
   | APIGetUserDefaultTimerTTL UserId
   | GetUserDefaultTimerTTL
   | APISetChatTTL UserId ChatRef (Maybe Int64)

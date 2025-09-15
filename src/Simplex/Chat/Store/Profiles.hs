@@ -940,12 +940,12 @@ setUserUIThemes db User {userId} uiThemes = do
   updatedAt <- getCurrentTime
   DB.execute db "UPDATE users SET ui_themes = ?, updated_at = ? WHERE user_id = ?" (uiThemes, updatedAt, userId)
 
-getUserDefaultTimerTTL :: DB.Connection -> User -> IO Int
+getUserDefaultTimerTTL :: DB.Connection -> User -> IO Int64
 getUserDefaultTimerTTL db User {userId} =
   fmap (fromMaybe (86400 :: Int64)) . maybeFirstRow fromOnly $
     DB.query db "SELECT default_timer_ttl FROM users WHERE user_id = ? LIMIT 1" (Only userId)
 
-setUserDefaultTimerTTL :: DB.Connection -> User -> Int -> IO ()
+setUserDefaultTimerTTL :: DB.Connection -> User -> Int64 -> IO ()
 setUserDefaultTimerTTL db User {userId} defaultTimerTTL = do
   updatedAt <- getCurrentTime
   DB.execute db "UPDATE users SET default_timer_ttl = ?, updated_at = ? WHERE user_id = ?" (defaultTimerTTL, updatedAt, userId)
