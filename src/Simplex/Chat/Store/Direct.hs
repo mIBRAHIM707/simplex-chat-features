@@ -242,6 +242,8 @@ createDirectContact :: DB.Connection -> User -> Connection -> Profile -> ExceptT
 createDirectContact db user conn@Connection {connId, localAlias} p = do
   let userDefaultTTL = let User {defaultTimerTTL = ttl} = user in ttl
       contactDefaultTTL = let Profile {defaultTimerTTL = ttl} = p in ttl
+      userId = let User {userId = uid} = user in uid
+      profilePreferences = let Profile {preferences = prefs} = p in prefs
   currentTs <- liftIO getCurrentTime
   (localDisplayName, contactId, profileId) <- createContact_ db userId p localAlias Nothing currentTs
   liftIO $ DB.execute db "UPDATE connections SET contact_id = ?, updated_at = ? WHERE connection_id = ?" (contactId, currentTs, connId)
@@ -252,7 +254,7 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
       userPreferences = case initialTTL of
         Just ttl -> setPreference_ SCFTimedMessages (Just $ TimedMessagesPreference {allow = FAYes, ttl = Just (fromIntegral ttl)}) emptyChatPrefs
         Nothing -> emptyChatPrefs
-      mergedPreferences = contactUserPreferences user userPreferences preferences $ connIncognito conn
+      mergedPreferences = contactUserPreferences user userPreferences profilePreferences $ connIncognito conn
   pure $
     Contact
       { contactId,
