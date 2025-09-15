@@ -1462,10 +1462,10 @@ viewChatItemTTL = \case
   Nothing -> ["old messages are set to delete according to default user config"]
   Just ttl
     | ttl == 0 -> ["old messages are not being deleted"]
-    | ttl == 86400 -> deletedAfter "one day"
-    | ttl == 7 * 86400 -> deletedAfter "one week"
-    | ttl == 30 * 86400 -> deletedAfter "one month"
-    | ttl == 365 * 86400 -> deletedAfter "one year"
+    | ttl == (86400 :: Int64) -> deletedAfter "one day"
+    | ttl == (7 * 86400 :: Int64) -> deletedAfter "one week"
+    | ttl == (30 * 86400 :: Int64) -> deletedAfter "one month"
+    | ttl == (365 * 86400 :: Int64) -> deletedAfter "one year"
     | otherwise -> deletedAfter $ sShow ttl <> " second(s)"
   where
     deletedAfter ttlStr = ["old messages are set to be deleted after: " <> ttlStr]

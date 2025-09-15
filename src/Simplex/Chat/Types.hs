@@ -133,7 +133,7 @@ data User = User
     sendRcptsSmallGroups :: Bool,
     userMemberProfileUpdatedAt :: Maybe UTCTime,
     uiThemes :: Maybe UIThemeEntityOverrides,
-    defaultTimerTTL :: Int
+    defaultTimerTTL :: Int64
   }
   deriving (Show)
 
@@ -564,7 +564,7 @@ data Profile = Profile
     image :: Maybe ImageData,
     contactLink :: Maybe ConnLinkContact,
     preferences :: Maybe Preferences,
-    defaultTimerTTL :: Maybe Int
+    defaultTimerTTL :: Maybe Int64
     -- fields that should not be read into this data type to prevent sending them as part of profile to contacts:
     -- - contact_profile_id
     -- - incognito
@@ -613,7 +613,7 @@ fromLocalProfile :: LocalProfile -> Profile
 fromLocalProfile LocalProfile {displayName, fullName, image, contactLink, preferences} =
   Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL = Nothing}
 
-fromLocalProfileWithDefault :: LocalProfile -> Int -> Profile
+fromLocalProfileWithDefault :: LocalProfile -> Int64 -> Profile
 fromLocalProfileWithDefault LocalProfile {displayName, fullName, image, contactLink, preferences} defaultTTL =
   Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL = Just defaultTTL}
 

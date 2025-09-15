@@ -295,7 +295,7 @@ updateUserProfile db user p'
       currentTs <- getCurrentTime
       DB.execute db "UPDATE users SET default_timer_ttl = ?, updated_at = ? WHERE user_id = ?" (fromMaybe (86400 :: Int64) profileDefaultTTL, currentTs, userId)
       userMemberProfileUpdatedAt' <- updateUserMemberProfileUpdatedAt_ currentTs
-      pure user {profile, fullPreferences, userMemberProfileUpdatedAt = userMemberProfileUpdatedAt', defaultTimerTTL = fromMaybe 86400 profileDefaultTTL}
+      pure user {profile, fullPreferences, userMemberProfileUpdatedAt = userMemberProfileUpdatedAt', defaultTimerTTL = fromMaybe (86400 :: Int64) profileDefaultTTL}
   | otherwise =
       checkConstraint SEDuplicateName . liftIO $ do
         currentTs <- getCurrentTime
@@ -307,7 +307,7 @@ updateUserProfile db user p'
           (newName, newName, userId, currentTs, currentTs)
         updateContactProfile_' db userId profileId p' currentTs
         updateContactLDN_ db user userContactId localDisplayName newName currentTs
-        pure user {localDisplayName = newName, profile, fullPreferences, userMemberProfileUpdatedAt = userMemberProfileUpdatedAt', defaultTimerTTL = fromMaybe 86400 profileDefaultTTL}
+        pure user {localDisplayName = newName, profile, fullPreferences, userMemberProfileUpdatedAt = userMemberProfileUpdatedAt', defaultTimerTTL = fromMaybe (86400 :: Int64) profileDefaultTTL}
   where
     updateUserMemberProfileUpdatedAt_ currentTs
       | userMemberProfileChanged = do
