@@ -2593,7 +2593,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           -- member records are not deleted to keep history
           members <- withStore' $ \db -> getGroupMembers db vr user gInfo
           deleteMembersConnections user members
-          withStore' $ \db -> updateGroupMemberStatus db (userId user) membership GSMemRemoved
+          withStore' $ \db -> updateGroupMemberStatus db (userId user :: UserId) membership GSMemRemoved
           when withMessages $ deleteMessages membership SMDSnd
           deleteMemberItem RGEUserDeleted
           toView $ CEvtDeletedMemberUser user gInfo {membership = membership {memberStatus = GSMemRemoved}} m withMessages
@@ -2626,7 +2626,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     xGrpLeave gInfo m msg brokerTs = do
       deleteMemberConnection m
       -- member record is not deleted to allow creation of "member left" chat item
-      withStore' $ \db -> updateGroupMemberStatus db (userId user) m GSMemLeft
+  withStore' $ \db -> updateGroupMemberStatus db (userId user :: UserId) m GSMemLeft
       ci <- saveRcvChatItemNoParse user (CDGroupRcv gInfo m) msg brokerTs (CIRcvGroupEvent RGEMemberLeft)
       groupMsgToView gInfo ci
       toView $ CEvtLeftMember user gInfo m {memberStatus = GSMemLeft}
@@ -2636,7 +2636,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       when (memberRole /= GROwner) $ throwChatError $ CEGroupUserRole gInfo GROwner
       ms <- withStore' $ \db -> do
         members <- getGroupMembers db vr user gInfo
-        updateGroupMemberStatus db (userId user) membership GSMemGroupDeleted
+  updateGroupMemberStatus db (userId user :: UserId) membership GSMemGroupDeleted
         pure members
       -- member records are not deleted to keep history
       deleteMembersConnections user ms
