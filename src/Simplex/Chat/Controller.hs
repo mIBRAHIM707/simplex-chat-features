@@ -624,7 +624,7 @@ data ChatResponse
   | CRUserServersValidation {user :: User, serverErrors :: [UserServersError]}
   | CRUsageConditions {usageConditions :: UsageConditions, conditionsText :: Text, acceptedConditions :: Maybe UsageConditions}
   | CRChatItemTTL {user :: User, chatItemTTL :: Maybe Int64}
-  | CRUserDefaultTimerTTL {user :: User, defaultTimerTTL :: Int}
+  | CRUserDefaultTimerTTL {user :: User, defaultTimerTTL :: Int64}
   | CRNetworkConfig {networkConfig :: NetworkConfig}
   | CRContactInfo {user :: User, contact :: Contact, connectionStats_ :: Maybe ConnectionStats, customUserProfile :: Maybe Profile}
   | CRGroupInfo {user :: User, groupInfo :: GroupInfo, groupSummary :: GroupSummary}
