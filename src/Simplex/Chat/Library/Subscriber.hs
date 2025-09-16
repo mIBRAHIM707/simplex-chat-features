@@ -1492,14 +1492,14 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     messageFileDescription :: Contact -> SharedMsgId -> FileDescr -> CM ()
     messageFileDescription ct@Contact {contactId} sharedMsgId fileDescr = do
-  let User {userId = uid} = user
-  fileId <- withStore $ \db -> getFileIdBySharedMsgId db uid contactId sharedMsgId
+      let User {userId = uid} = user
+      fileId <- withStore $ \db -> getFileIdBySharedMsgId db uid contactId sharedMsgId
       processFDMessage (CDDirectRcv ct) sharedMsgId fileId fileDescr
 
     groupMessageFileDescription :: GroupInfo -> GroupMember -> SharedMsgId -> FileDescr -> CM ()
     groupMessageFileDescription g@GroupInfo {groupId} m sharedMsgId fileDescr = do
-  let User {userId = uid} = user
-  fileId <- withStore $ \db -> getGroupFileIdBySharedMsgId db uid groupId sharedMsgId
+      let User {userId = uid} = user
+      fileId <- withStore $ \db -> getGroupFileIdBySharedMsgId db uid groupId sharedMsgId
       processFDMessage (CDGroupRcv g m) sharedMsgId fileId fileDescr
 
     processFDMessage :: ChatTypeQuotable c => ChatDirection c 'MDRcv -> SharedMsgId -> FileTransferId -> FileDescr -> CM ()
