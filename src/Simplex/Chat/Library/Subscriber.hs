@@ -2076,12 +2076,12 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                 (Nothing, Just rTTL) -> Just (fromIntegral rTTL)
                 (Nothing, Nothing) -> Nothing
               ctUserTMPref' = case ctUserTMPref of
-                Just userTM -> Just (userTM :: TimedMessagesPreference) {ttl = negotiatedTTL}
+                Just userTM -> userTM {ttl = negotiatedTTL}
                 _
                   | Just nTTL <- negotiatedTTL, Just uTTL <- userDefaultTTL, nTTL /= uTTL -> case userDefault of
-                      Just pref -> Just (pref :: TimedMessagesPreference) {ttl = negotiatedTTL}
-                      Nothing -> Just (TimedMessagesPreference {allow = FAYes, ttl = negotiatedTTL})
-                  | otherwise -> Nothing
+                      Just pref -> pref {ttl = negotiatedTTL}
+                      Nothing -> TimedMessagesPreference {allow = FAYes, ttl = negotiatedTTL}
+                  | otherwise -> TimedMessagesPreference {allow = FAYes, ttl = Nothing}
            in setPreference_ SCFTimedMessages ctUserTMPref' ctUserPrefs
         createProfileUpdatedItem c' =
           when visibleProfileUpdated $ do
