@@ -42,7 +42,7 @@ import qualified Data.UUID.V4 as V4
 import Data.Word (Word32)
 import Simplex.Chat.Call
 import Simplex.Chat.Controller
-import Simplex.Chat.Library.Internal hiding (deleteMemberConnection)
+import Simplex.Chat.Library.Internal
 import Simplex.Chat.Messages
 import Simplex.Chat.Messages.CIContent
 import Simplex.Chat.Messages.CIContent.Events
@@ -114,18 +114,7 @@ processAgentMessage corrId connId msg = do
 -- - with ACK message will be lost, as it failed to be saved.
 -- Full app restart is likely to resolve database condition and the message will be received and processed again.
 
-deleteMemberConnection' :: GroupMember -> Bool -> CM ()
-deleteMemberConnection' m _withMessages =
-  withStore' $ \db ->
-    forM_ (memberConnections m) $ \connId ->
-      deleteConnectionRecord db user connId
-
--- | Delete all connections for a group member (no Bool flag)
-deleteMemberConnection :: GroupMember -> CM ()
-deleteMemberConnection m =
-  withStore' $ \db ->
-    forM_ (memberConnections m) $ \connId ->
-      deleteConnectionRecord db user connId
+-- (use deleteMemberConnection / deleteMemberConnection' from Simplex.Chat.Library.Internal)
 
 critical :: CM a -> CM a
 critical a =
