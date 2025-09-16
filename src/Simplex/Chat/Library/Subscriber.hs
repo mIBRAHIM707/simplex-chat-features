@@ -1493,10 +1493,11 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     processFDMessage :: ChatTypeQuotable c => ChatDirection c 'MDRcv -> SharedMsgId -> FileTransferId -> FileDescr -> CM ()
     processFDMessage cd sharedMsgId fileId fileDescr = do
+      let User {userId = uid} = user
       ft <- withStore $ \db -> getRcvFileTransfer db user fileId
       unless (rcvFileCompleteOrCancelled ft) $ do
         (rfd@RcvFileDescr {fileDescrComplete}, ft'@RcvFileTransfer {fileStatus, xftpRcvFile, cryptoArgs}) <- withStore $ \db -> do
-          rfd <- appendRcvFD db userId fileId fileDescr
+          rfd <- appendRcvFD db uid fileId fileDescr
           -- reading second time in the same transaction as appending description
           -- to prevent race condition with accept
           ft' <- getRcvFileTransfer db user fileId
@@ -1687,7 +1688,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           newChatItem (CIRcvMsgContent content, ts) (snd <$> file_) timed' live'
           when (showMessages $ memberSettings m) $ autoAcceptFile file_
         processFileInv =
-          processFileInvitation fInv_ content $ \db -> createRcvGroupFileTransfer db userId m
+          let User {userId = uid} = user in
+          processFileInvitation fInv_ content $ \db -> createRcvGroupFileTransfer db uid m
         newChatItem ciContent ciFile_ timed_ live = do
           let mentions' = if showMessages (memberSettings m) then mentions else []
           ci <- saveRcvCI ciContent ciFile_ timed_ live mentions'
