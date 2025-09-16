@@ -348,8 +348,8 @@ processChatCommand' vr = \case
       copyServers UserOperatorServers {operator, smpServers, xftpServers} =
         let new srv = AUS SDBNew srv {serverId = DBNewEntity}
          in UpdatedUserOperatorServers {operator, smpServers = map new smpServers, xftpServers = map new xftpServers}
-  coupleDaysAgo t = (`addUTCTime` t) . fromIntegral . negate . (+ (2 * day)) <$> randomRIO (0, day)
-  day = 86400 :: Int
+      coupleDaysAgo t = (`addUTCTime` t) . fromIntegral . negate . (+ (2 * day)) <$> randomRIO (0, day)
+      day = 86400 :: Int
   ListUsers -> CRUsersList <$> withFastStore' getUsersInfo
   APISetActiveUser userId' viewPwd_ -> do
     unlessM (lift chatStarted) $ throwChatError CEChatNotStarted
@@ -4353,14 +4353,15 @@ chatCommandP =
         <|> ("month" $> (30 * 86400 :: Int64))
         <|> ("year" $> (365 * 86400 :: Int64))
         <|> ("none" $> 0)
+    timedTTLP :: Parser Int
     timedTTLP =
       ("30s" $> 30)
         <|> ("5min" $> 300)
         <|> ("1h" $> 3600)
         <|> ("8h" $> (8 * 3600))
         <|> ("day" $> (86400 :: Int))
-        <|> ("week" $> (7 * 86400 :: Int))
-        <|> ("month" $> (30 * 86400 :: Int))
+        <|> ("week" $> (7 * (86400 :: Int)))
+        <|> ("month" $> (30 * (86400 :: Int)))
         <|> A.decimal
     timedTTLOnOffP =
       optional ("on" *> A.space) *> (Just <$> timedTTLP)
