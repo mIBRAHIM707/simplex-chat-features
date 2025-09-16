@@ -357,7 +357,7 @@ processAgentMsgRcvFile _corrId aFileId msg = do
 processAgentMessageConn :: VersionRangeChat -> User -> ACorrId -> ConnId -> AEvent 'AEConn -> CM ()
 processAgentMessageConn vr user corrId agentConnId agentMessage = do
   let userTTL = let User {defaultTimerTTL = ttl} = user in ttl
-      uid = user.userId
+      uid = let User {userId = u} = user in u
   -- Missing connection/entity errors here will be sent to the view but not shown as CRITICAL alert,
   -- as in this case no need to ACK message - we can't process messages for this connection anyway.
   -- SEDBException will be re-trown as CRITICAL as it is likely to indicate a temporary database condition
@@ -1813,7 +1813,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     processGroupFileInvitation' gInfo m fInv@FileInvitation {fileName, fileSize} msg@RcvMessage {sharedMsgId_} brokerTs = do
       ChatConfig {fileChunkSize} <- asks config
       inline <- receiveInlineMode fInv Nothing fileChunkSize
-      RcvFileTransfer {fileId, xftpRcvFile} <- withStore $ \db -> createRcvGroupFileTransfer db userId m fInv inline fileChunkSize
+      RcvFileTransfer {fileId, xftpRcvFile} <- withStore $ \db -> createRcvGroupFileTransfer db uid m fInv inline fileChunkSize
       let fileProtocol = if isJust xftpRcvFile then FPXFTP else FPSMP
           ciFile = Just $ CIFile {fileId, fileName, fileSize, fileSource = Nothing, fileStatus = CIFSRcvInvitation, fileProtocol}
           content = ciContentNoParse $ CIRcvMsgContent $ MCFile ""
@@ -1837,7 +1837,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     xFileCancel :: Contact -> SharedMsgId -> CM ()
     xFileCancel Contact {contactId} sharedMsgId = do
-      fileId <- withStore $ \db -> getFileIdBySharedMsgId db userId contactId sharedMsgId
+      fileId <- withStore $ \db -> getFileIdBySharedMsgId db uid contactId sharedMsgId
       ft <- withStore (\db -> getRcvFileTransfer db user fileId)
       unless (rcvFileCompleteOrCancelled ft) $ do
         cancelRcvFileTransfer user ft >>= mapM_ deleteAgentConnectionAsync
@@ -1911,7 +1911,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     bFileChunkGroup :: GroupInfo -> SharedMsgId -> FileChunk -> MsgMeta -> CM ()
     bFileChunkGroup GroupInfo {groupId} sharedMsgId chunk meta = do
-      ft <- withStore $ \db -> getGroupFileIdBySharedMsgId db userId groupId sharedMsgId >>= getRcvFileTransfer db user
+      ft <- withStore $ \db -> getGroupFileIdBySharedMsgId db uid groupId sharedMsgId >>= getRcvFileTransfer db user
       receiveInlineChunk ft chunk meta
 
     receiveInlineChunk :: RcvFileTransfer -> FileChunk -> MsgMeta -> CM ()
@@ -1926,7 +1926,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     xFileCancelGroup :: GroupInfo -> GroupMember -> SharedMsgId -> CM ()
     xFileCancelGroup g@GroupInfo {groupId} GroupMember {groupMemberId, memberId} sharedMsgId = do
-      fileId <- withStore $ \db -> getGroupFileIdBySharedMsgId db userId groupId sharedMsgId
+      fileId <- withStore $ \db -> getGroupFileIdBySharedMsgId db uid groupId sharedMsgId
       CChatItem msgDir ChatItem {chatDir} <- withStore $ \db -> getGroupChatItemBySharedMsgId db user g groupMemberId sharedMsgId
       case (msgDir, chatDir) of
         (SMDRcv, CIGroupRcv m) -> do
