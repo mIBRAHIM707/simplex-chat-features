@@ -348,8 +348,15 @@ processChatCommand' vr = \case
       copyServers UserOperatorServers {operator, smpServers, xftpServers} =
         let new srv = AUS SDBNew srv {serverId = DBNewEntity}
          in UpdatedUserOperatorServers {operator, smpServers = map new smpServers, xftpServers = map new xftpServers}
-      coupleDaysAgo t = (`addUTCTime` t) . fromIntegral . negate . (+ (2 * day)) <$> randomRIO (0, day)
-      day = 86400 :: Int
+      coupleDaysAgo :: UTCTime -> IO UTCTime
+      coupleDaysAgo t = do
+        -- pick a random offset between 0 and one day, then shift back by 2 days + offset
+        r <- randomRIO (0 :: Int, day)
+        let secs = negate (r + 2 * day)
+        pure $ addUTCTime (realToFrac secs) t
+
+      day :: Int
+      day = 86400
   ListUsers -> CRUsersList <$> withFastStore' getUsersInfo
   APISetActiveUser userId' viewPwd_ -> do
     unlessM (lift chatStarted) $ throwChatError CEChatNotStarted
