@@ -107,7 +107,7 @@ createActiveUser cc = do
   where
     loop = do
       displayName <- T.pack <$> getWithPrompt "display name"
-      let profile = Just Profile {displayName, fullName = "", image = Nothing, contactLink = Nothing, preferences = Nothing}
+      let profile = Just Profile {displayName, fullName = "", image = Nothing, contactLink = Nothing, preferences = Nothing, defaultTimerTTL = Nothing}
       execChatCommand' (CreateActiveUser NewUser {profile, pastTimestamp = False}) `runReaderT` cc >>= \case
         Right (CRActiveUser user) -> pure user
         r -> printResponseEvent (Nothing, Nothing) (config cc) r >> loop
