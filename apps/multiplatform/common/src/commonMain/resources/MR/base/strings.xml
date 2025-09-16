@@ -290,6 +290,17 @@
   <string name="la_minutes">%d minutes</string>
   <string name="la_please_remember_to_store_password">Please remember or store it securely - there is no way to recover a lost password!</string>
 
+  <!-- Default timer for disappearing messages -->
+  <string name="privacy_default_timer_title">Default disappearing message timer</string>
+  <string name="privacy_default_timer_off">Off</string>
+  <string name="privacy_default_timer_30s">30 seconds</string>
+  <string name="privacy_default_timer_1m">1 minute</string>
+  <string name="privacy_default_timer_5m">5 minutes</string>
+  <string name="privacy_default_timer_1h">1 hour</string>
+  <string name="privacy_default_timer_1d">1 day</string>
+  <string name="privacy_default_timer_5d">5 days</string>
+  <string name="failed_to_set_default_timer_title">Failed to set default timer</string>
+
   <!-- LocalAuthentication.kt -->
   <string name="auth_simplex_lock_turned_on">SimpleX Lock turned on</string>
   <string name="auth_you_will_be_required_to_authenticate_when_you_start_or_resume">You will be required to authenticate when you start or resume the app after 30 seconds in background.</string>

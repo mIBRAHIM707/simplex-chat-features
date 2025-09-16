@@ -820,6 +820,18 @@ object ChatController {
 
   suspend fun apiSetEncryptLocalFiles(enable: Boolean) = sendCommandOkResp(null, CC.ApiSetEncryptLocalFiles(enable))
 
+  suspend fun apiSetUserDefaultTimerTTL(u: User, seconds: Long) {
+    val r = sendCmd(u.remoteHostId, CC.APISetUserDefaultTimerTTL(u.userId, seconds))
+    if (r.result is CR.CmdOk) return
+    throw Exception("failed to set user default timer TTL: ${r.responseType} ${r.details}")
+  }
+
+  suspend fun apiGetUserDefaultTimerTTL(u: User): Long {
+    val r = sendCmd(u.remoteHostId, CC.APIGetUserDefaultTimerTTL(u.userId))
+    if (r is API.Result && r.res is CR.UserDefaultTimerTTL) return r.res.defaultTimerTTL
+    throw Exception("failed to get user default timer TTL: ${r.responseType} ${r.details}")
+  }
+
   suspend fun apiSaveAppSettings(settings: AppSettings) {
     val r = sendCmd(null, CC.ApiSaveSettings(settings))
     if (r.result is CR.CmdOk) return
@@ -3341,6 +3353,8 @@ sealed class CC {
   class ApiAcceptConditions(val conditionsId: Long, val operatorIds: List<Long>): CC()
   class APISetChatItemTTL(val userId: Long, val seconds: Long): CC()
   class APIGetChatItemTTL(val userId: Long): CC()
+  class APISetUserDefaultTimerTTL(val userId: Long, val seconds: Long): CC()
+  class APIGetUserDefaultTimerTTL(val userId: Long): CC()
   class APISetChatTTL(val userId: Long, val chatType: ChatType, val id: Long, val seconds: Long?): CC()
   class APISetNetworkConfig(val networkConfig: NetCfg): CC()
   class APIGetNetworkConfig: CC()
@@ -3526,6 +3540,8 @@ sealed class CC {
     is ApiAcceptConditions -> "/_accept_conditions ${conditionsId} ${operatorIds.joinToString(",")}"
     is APISetChatItemTTL -> "/_ttl $userId ${chatItemTTLStr(seconds)}"
     is APIGetChatItemTTL -> "/_ttl $userId"
+  is APISetUserDefaultTimerTTL -> "/_default_timer_ttl $userId $seconds"
+  is APIGetUserDefaultTimerTTL -> "/_default_timer_ttl $userId"
     is APISetChatTTL -> "/_ttl $userId ${chatRef(chatType, id)} ${chatItemTTLStr(seconds)}"
     is APISetNetworkConfig -> "/_network ${json.encodeToString(networkConfig)}"
     is APIGetNetworkConfig -> "/network"
@@ -3689,6 +3705,8 @@ sealed class CC {
     is ApiAcceptConditions -> "apiAcceptConditions"
     is APISetChatItemTTL -> "apiSetChatItemTTL"
     is APIGetChatItemTTL -> "apiGetChatItemTTL"
+  is APISetUserDefaultTimerTTL -> "apiSetUserDefaultTimerTTL"
+  is APIGetUserDefaultTimerTTL -> "apiGetUserDefaultTimerTTL"
     is APISetChatTTL -> "apiSetChatTTL"
     is APISetNetworkConfig -> "apiSetNetworkConfig"
     is APIGetNetworkConfig -> "apiGetNetworkConfig"
@@ -5736,6 +5754,7 @@ sealed class CR {
   @Serializable @SerialName("userServersValidation") class UserServersValidation(val user: UserRef, val serverErrors: List<UserServersError>): CR()
   @Serializable @SerialName("usageConditions") class UsageConditions(val usageConditions: UsageConditionsDetail, val conditionsText: String?, val acceptedConditions: UsageConditionsDetail?): CR()
   @Serializable @SerialName("chatItemTTL") class ChatItemTTL(val user: UserRef, val chatItemTTL: Long? = null): CR()
+  @Serializable @SerialName("userDefaultTimerTTL") class UserDefaultTimerTTL(val user: UserRef, val defaultTimerTTL: Long): CR()
   @Serializable @SerialName("networkConfig") class NetworkConfig(val networkConfig: NetCfg): CR()
   @Serializable @SerialName("contactInfo") class ContactInfo(val user: UserRef, val contact: Contact, val connectionStats_: ConnectionStats? = null, val customUserProfile: Profile? = null): CR()
   @Serializable @SerialName("groupMemberInfo") class GroupMemberInfo(val user: UserRef, val groupInfo: GroupInfo, val member: GroupMember, val connectionStats_: ConnectionStats? = null): CR()
