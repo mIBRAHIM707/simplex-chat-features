@@ -769,12 +769,12 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
               _ -> messageError "CONF from member must have x.grp.mem.info"
       INFO _pqSupport connInfo -> do
         ChatMessage {chatVRange, chatMsgEvent} <- parseChatMessage conn connInfo
-        _conn' <- updatePeerChatVRange conn chatVRange
+          conn' <- updatePeerChatVRange conn chatVRange
         case chatMsgEvent of
           XGrpMemInfo memId _memProfile
             | sameMemberId memId m -> do
                 -- TODO update member profile
-                pure ()
+                return ()
             | otherwise -> messageError "x.grp.mem.info: memberId is different from expected"
           -- sent when connecting via group link
           XInfo _ ->
