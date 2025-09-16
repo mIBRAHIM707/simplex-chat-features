@@ -84,56 +84,7 @@ fun PrivacySettingsView(
             chatModel.draftChatId.value = null
           }
         })
-      // User default disappearing message timer
-      val defaultTimerOptions = remember {
-        listOf(
-          0L to generalGetString(MR.strings.privacy_default_timer_off),
-          30L to generalGetString(MR.strings.privacy_default_timer_30s),
-          60L to generalGetString(MR.strings.privacy_default_timer_1m),
-          300L to generalGetString(MR.strings.privacy_default_timer_5m),
-          3600L to generalGetString(MR.strings.privacy_default_timer_1h),
-          86400L to generalGetString(MR.strings.privacy_default_timer_1d),
-          432000L to generalGetString(MR.strings.privacy_default_timer_5d)
-        )
-      }
-
-      val defaultTimerState = remember { mutableStateOf(86400L) }
-      val defaultTimerStateWrapper = object : State<Long> { override val value: Long get() = defaultTimerState.value }
-
-      // Load current value when screen appears
-      LaunchedEffect(currentUser) {
-        if (currentUser != null) {
-          try {
-            val ttl = withContext(Dispatchers.IO) {
-              chatModel.controller.apiGetUserDefaultTimerTTL(currentUser)
-            }
-            defaultTimerState.value = ttl
-          } catch (e: Throwable) {
-            // ignore, keep default
-          }
-        }
-      }
-
-      ExposedDropDownSettingRow(
-        generalGetString(MR.strings.privacy_default_timer_title),
-        defaultTimerOptions.map { it.first to it.second },
-        defaultTimerStateWrapper,
-        icon = painterResource(MR.images.ic_timer),
-        enabled = remember { mutableStateOf(currentUser != null) },
-        onSelected = { seconds ->
-          if (currentUser != null) {
-            withLongRunningApi(slow = 10_000) {
-              try {
-                chatModel.controller.apiSetUserDefaultTimerTTL(currentUser, seconds)
-                defaultTimerState.value = seconds
-              } catch (e: Throwable) {
-                // show error
-                AlertManager.shared.showAlertMsg(generalGetString(MR.strings.failed_to_set_default_timer_title), e.message ?: "")
-              }
-            }
-          }
-        }
-      )
+      // (moved below) User default disappearing message timer
       SimpleXLinkOptions(chatModel.simplexLinkMode, onSelected = {
         simplexLinkMode.set(it)
         chatModel.simplexLinkMode.value = it
@@ -168,6 +119,52 @@ fun PrivacySettingsView(
 
     val currentUser = chatModel.currentUser.value
     if (currentUser != null) {
+      // User default disappearing message timer (per-user setting)
+      val defaultTimerOptions = remember {
+        listOf(
+          0L to generalGetString(MR.strings.privacy_default_timer_off),
+          30L to generalGetString(MR.strings.privacy_default_timer_30s),
+          60L to generalGetString(MR.strings.privacy_default_timer_1m),
+          300L to generalGetString(MR.strings.privacy_default_timer_5m),
+          3600L to generalGetString(MR.strings.privacy_default_timer_1h),
+          86400L to generalGetString(MR.strings.privacy_default_timer_1d),
+          432000L to generalGetString(MR.strings.privacy_default_timer_5d)
+        )
+      }
+
+      val defaultTimerState = remember { mutableStateOf(86400L) }
+      val defaultTimerStateWrapper = object : State<Long> { override val value: Long get() = defaultTimerState.value }
+
+      // Load current value when screen appears
+      LaunchedEffect(currentUser) {
+        try {
+          val ttl = withContext(Dispatchers.IO) {
+            chatModel.controller.apiGetUserDefaultTimerTTL(currentUser)
+          }
+          defaultTimerState.value = ttl
+        } catch (e: Throwable) {
+          // ignore, keep default
+        }
+      }
+
+      ExposedDropDownSettingRow(
+        generalGetString(MR.strings.privacy_default_timer_title),
+        defaultTimerOptions.map { it.first to it.second },
+        defaultTimerStateWrapper,
+        icon = painterResource(MR.images.ic_timer),
+        enabled = remember { mutableStateOf(true) },
+        onSelected = { seconds ->
+          withLongRunningApi(slow = 10_000) {
+            try {
+              chatModel.controller.apiSetUserDefaultTimerTTL(currentUser, seconds)
+              defaultTimerState.value = seconds
+            } catch (e: Throwable) {
+              // show error
+              AlertManager.shared.showAlertMsg(generalGetString(MR.strings.failed_to_set_default_timer_title), e.message ?: "")
+            }
+          }
+        }
+      )
       fun setSendReceiptsContacts(enable: Boolean, clearOverrides: Boolean) {
         withLongRunningApi(slow = 60_000) {
           val mrs = UserMsgReceiptSettings(enable, clearOverrides)

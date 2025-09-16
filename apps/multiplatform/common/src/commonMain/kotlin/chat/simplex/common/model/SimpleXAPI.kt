@@ -6058,6 +6058,7 @@ sealed class CR {
     is CallEnded -> "callEnded"
     is ContactConnectionDeleted -> "contactConnectionDeleted"
     is ContactDisabled -> "contactDisabled"
+    is UserDefaultTimerTTL -> "userDefaultTimerTTL"
     is RemoteHostList -> "remoteHostList"
     is CurrentRemoteHost -> "currentRemoteHost"
     is RemoteHostStarted -> "remoteHostStarted"
@@ -6226,6 +6227,7 @@ sealed class CR {
     is CallEnded -> withUser(user, "contact: ${contact.id}")
     is ContactConnectionDeleted -> withUser(user, json.encodeToString(connection))
     is ContactDisabled -> withUser(user, json.encodeToString(contact))
+    is UserDefaultTimerTTL -> withUser(user, "defaultTimerTTL: ${defaultTimerTTL}")
     // remote events (mobile)
     is RemoteHostList -> json.encodeToString(remoteHosts)
     is CurrentRemoteHost -> if (remoteHost_ == null) "local" else json.encodeToString(remoteHost_)
