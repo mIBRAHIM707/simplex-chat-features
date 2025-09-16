@@ -872,20 +872,20 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
               XInfo p -> xInfoMember gInfo m' p brokerTs
               XGrpLinkMem p -> xGrpLinkMem gInfo m' conn' p
               XGrpLinkAcpt role -> xGrpLinkAcpt gInfo m' role
-              XGrpMemNew memInfo -> xGrpMemNew gInfo m' memInfo msg brokerTs
+              XGrpMemNew memInfo -> xGrpMemNew vr user gInfo m' memInfo msg brokerTs
               XGrpMemIntro memInfo memRestrictions_ -> xGrpMemIntro gInfo m' memInfo memRestrictions_
               XGrpMemInv memId introInv -> xGrpMemInv vr user gInfo m' memId introInv
               XGrpMemFwd memInfo introInv -> xGrpMemFwd vr user gInfo m' memInfo introInv
-              XGrpMemRole memId memRole -> xGrpMemRole gInfo m' memId memRole msg brokerTs
-              XGrpMemRestrict memId memRestrictions -> xGrpMemRestrict gInfo m' memId memRestrictions msg brokerTs
+              XGrpMemRole memId memRole -> xGrpMemRole vr user gInfo m' memId memRole msg brokerTs
+              XGrpMemRestrict memId memRestrictions -> xGrpMemRestrict vr user gInfo m' memId memRestrictions msg brokerTs
               XGrpMemCon memId -> xGrpMemCon gInfo m' memId
-              XGrpMemDel memId withMessages -> xGrpMemDel gInfo m' memId withMessages msg brokerTs
-              XGrpLeave -> xGrpLeave gInfo m' msg brokerTs
-              XGrpDel -> xGrpDel gInfo m' msg brokerTs
-              XGrpInfo p' -> xGrpInfo gInfo m' p' msg brokerTs
+              XGrpMemDel memId withMessages -> xGrpMemDel vr user gInfo m' memId withMessages msg brokerTs
+              XGrpLeave -> xGrpLeave user gInfo m' msg brokerTs
+              XGrpDel -> xGrpDel vr user gInfo m' msg brokerTs
+              XGrpInfo p' -> xGrpInfo user gInfo m' p' msg brokerTs
               XGrpPrefs ps' -> xGrpPrefs gInfo m' ps'
               XGrpDirectInv connReq mContent_ -> memberCanSend m' $ xGrpDirectInv gInfo m' conn' connReq mContent_ msg brokerTs
-              XGrpMsgForward memberId msg' msgTs -> xGrpMsgForward gInfo m' memberId msg' msgTs
+              XGrpMsgForward memberId msg' msgTs -> xGrpMsgForward vr user gInfo m' memberId msg' msgTs
               XInfoProbe probe -> xInfoProbe (COMGroupMember m') probe
               XInfoProbeCheck probeHash -> xInfoProbeCheck (COMGroupMember m') probeHash
               XInfoProbeOk probe -> xInfoProbeOk (COMGroupMember m') probe
@@ -2062,10 +2062,10 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       where
         p = fromLocalProfileWithDefault lp userTTL
         Contact {userPreferences = ctUserPrefs@Preferences {timedMessages = ctUserTMPref}} = c
-        userTTL = fromMaybe 86400 userTTL_  -- Use user's defaultTimerTTL (Int64) with fallback
-        userTTL_ = let User {defaultTimerTTL = ttl} = user in ttl  -- Get from user object
+        userTTL = fromIntegral $ fromMaybe 86400 userTTL_  -- Use user's defaultTimerTTL (Int64) with fallback
+        userTTL_ = Just $ let User {defaultTimerTTL = ttl} = user in ttl  -- Get from user object
         Profile {preferences = rcvPrefs_, defaultTimerTTL = rcvDefaultTTL} = p'
-        rcvTTL = prefParam $ getPreference SCFTimedMessages rcvPrefs_
+        rcvTTL = fromIntegral <$> prefParam (getPreference SCFTimedMessages rcvPrefs_)
         ctUserPrefs' =
           let userDefault = getPreference SCFTimedMessages (fullPreferences user)
               userDefaultTTL = prefParam userDefault
@@ -2079,7 +2079,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                 Just userTM -> Just (userTM :: TimedMessagesPreference) {ttl = negotiatedTTL}
                 _
                   | Just nTTL <- negotiatedTTL, Just uTTL <- userDefaultTTL, nTTL /= uTTL -> case userDefault of
-                      Just pref -> Just (pref {ttl = negotiatedTTL})
+                      Just pref -> Just (pref :: TimedMessagesPreference) {ttl = negotiatedTTL}
                       Nothing -> Just (TimedMessagesPreference {allow = FAYes, ttl = negotiatedTTL})
                   | otherwise -> Nothing
            in setPreference_ SCFTimedMessages ctUserTMPref' ctUserPrefs
@@ -2432,8 +2432,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
         -- TODO show/log error, other events in SMP confirmation
         _ -> pure (conn', False)
 
-    xGrpMemNew :: GroupInfo -> GroupMember -> MemberInfo -> RcvMessage -> UTCTime -> CM ()
-    xGrpMemNew gInfo m memInfo@(MemberInfo memId memRole _ _) msg brokerTs = do
+    xGrpMemNew :: VersionRangeChat -> User -> GroupInfo -> GroupMember -> MemberInfo -> RcvMessage -> UTCTime -> CM ()
+    xGrpMemNew vr user gInfo m memInfo@(MemberInfo memId memRole _ _) msg brokerTs = do
       checkHostRole m memRole
       unless (sameMemberId memId $ membership gInfo) $
         withStore' (\db -> runExceptT $ getGroupMemberByMemberId db vr user gInfo memId) >>= \case
@@ -2487,7 +2487,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       let User {userId = uid} = user
       case memberCategory m of
         GCInviteeMember ->
-          withStore' (\db -> runExceptT $ getGroupMemberByMemberId db vr uid gInfo memId) >>= \case
+          withStore' (\db -> runExceptT $ getGroupMemberByMemberId db vr user gInfo memId) >>= \case
             Left _ -> messageError "x.grp.mem.inv error: referenced member does not exist"
             Right reMember -> do
               GroupMemberIntro {introId} <- withStore $ \db -> saveIntroInvitation db reMember m introInv
@@ -2502,7 +2502,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       let GroupMember {memberId = membershipMemId} = membership
       checkHostRole m memRole
       toMember <-
-        withStore' (\db -> runExceptT $ getGroupMemberByMemberId db vr uid gInfo memId) >>= \case
+        withStore' (\db -> runExceptT $ getGroupMemberByMemberId db vr user gInfo memId) >>= \case
           -- TODO if the missed messages are correctly sent as soon as there is connection before anything else is sent
           -- the situation when member does not exist is an error
           -- member receiving x.grp.mem.fwd should have also received x.grp.mem.new prior to that.
@@ -2522,8 +2522,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           chatV = vr `peerConnChatVersion` mcvr
       withStore' $ \db -> createIntroToMemberContact db user m toMember chatV mcvr groupConnIds directConnIds customUserProfileId subMode
 
-    xGrpMemRole :: GroupInfo -> GroupMember -> MemberId -> GroupMemberRole -> RcvMessage -> UTCTime -> CM ()
-    xGrpMemRole gInfo@GroupInfo {membership} m@GroupMember {memberRole = senderRole} memId memRole msg brokerTs
+    xGrpMemRole :: VersionRangeChat -> User -> GroupInfo -> GroupMember -> MemberId -> GroupMemberRole -> RcvMessage -> UTCTime -> CM ()
+    xGrpMemRole vr user gInfo@GroupInfo {membership} m@GroupMember {memberRole = senderRole} memId memRole msg brokerTs
       | membershipMemId == memId =
           let gInfo' = gInfo {membership = membership {memberRole = memRole}}
            in changeMemberRole gInfo' membership $ RGEUserRole memRole
@@ -2545,8 +2545,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     checkHostRole GroupMember {memberRole, localDisplayName} memRole =
       when (memberRole < GRAdmin || memberRole < memRole) $ throwChatError (CEGroupContactRole localDisplayName)
 
-    xGrpMemRestrict :: GroupInfo -> GroupMember -> MemberId -> MemberRestrictions -> RcvMessage -> UTCTime -> CM ()
-    xGrpMemRestrict
+    xGrpMemRestrict :: VersionRangeChat -> User -> GroupInfo -> GroupMember -> MemberId -> MemberRestrictions -> RcvMessage -> UTCTime -> CM ()
+    xGrpMemRestrict vr user
       gInfo@GroupInfo {membership = GroupMember {memberId = membershipMemId}}
       m@GroupMember {memberRole = senderRole}
       memId
@@ -2618,8 +2618,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           _ -> updateStatus introId GMIntroReConnected
         updateStatus introId status = withStore' $ \db -> updateIntroStatus db introId status
 
-    xGrpMemDel :: GroupInfo -> GroupMember -> MemberId -> Bool -> RcvMessage -> UTCTime -> CM ()
-    xGrpMemDel gInfo@GroupInfo {membership} m@GroupMember {memberRole = senderRole} memId withMessages msg brokerTs = do
+    xGrpMemDel :: VersionRangeChat -> User -> GroupInfo -> GroupMember -> MemberId -> Bool -> RcvMessage -> UTCTime -> CM ()
+    xGrpMemDel vr user gInfo@GroupInfo {membership} m@GroupMember {memberRole = senderRole} memId withMessages msg brokerTs = do
       let GroupMember {memberId = membershipMemId} = membership
       if membershipMemId == memId
         then checkRole membership $ do
@@ -2659,8 +2659,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           | otherwise = markGroupMemberCIsDeleted user gInfo delMem m
 
 
-    xGrpLeave :: GroupInfo -> GroupMember -> RcvMessage -> UTCTime -> CM ()
-    xGrpLeave gInfo m msg brokerTs = do
+    xGrpLeave :: User -> GroupInfo -> GroupMember -> RcvMessage -> UTCTime -> CM ()
+    xGrpLeave user gInfo m msg brokerTs = do
       deleteMemberConnection m
       -- member record is not deleted to allow creation of "member left" chat item
       withStore' $ \db -> do
@@ -2670,8 +2670,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       groupMsgToView gInfo ci
       toView $ CEvtLeftMember user gInfo m {memberStatus = GSMemLeft}
 
-    xGrpDel :: GroupInfo -> GroupMember -> RcvMessage -> UTCTime -> CM ()
-    xGrpDel gInfo@GroupInfo {membership} m@GroupMember {memberRole} msg brokerTs = do
+    xGrpDel :: VersionRangeChat -> User -> GroupInfo -> GroupMember -> RcvMessage -> UTCTime -> CM ()
+    xGrpDel vr user gInfo@GroupInfo {membership} m@GroupMember {memberRole} msg brokerTs = do
       when (memberRole /= GROwner) $ throwChatError $ CEGroupUserRole gInfo GROwner
       ms <- withStore' $ \db -> do
         members <- getGroupMembers db vr user gInfo
@@ -2685,8 +2685,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       groupMsgToView gInfo ci
       toView $ CEvtGroupDeleted user gInfo {membership = membership {memberStatus = GSMemGroupDeleted}} m
 
-    xGrpInfo :: GroupInfo -> GroupMember -> GroupProfile -> RcvMessage -> UTCTime -> CM ()
-    xGrpInfo g@GroupInfo {groupProfile = p, businessChat} m@GroupMember {memberRole} p' msg brokerTs
+    xGrpInfo :: User -> GroupInfo -> GroupMember -> GroupProfile -> RcvMessage -> UTCTime -> CM ()
+    xGrpInfo user g@GroupInfo {groupProfile = p, businessChat} m@GroupMember {memberRole} p' msg brokerTs
       | memberRole < GROwner = messageError "x.grp.info with insufficient member permissions"
       | otherwise = case businessChat of
           Nothing -> unless (p == p') $ do
@@ -2761,8 +2761,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       toViewTE $ TEContactVerificationReset user ct
       createInternalChatItem user (CDDirectRcv ct) (CIRcvConnEvent RCEVerificationCodeReset) Nothing
 
-    xGrpMsgForward :: GroupInfo -> GroupMember -> MemberId -> ChatMessage 'Json -> UTCTime -> CM ()
-    xGrpMsgForward gInfo@GroupInfo {groupId} m@GroupMember {memberRole, localDisplayName} memberId msg msgTs = do
+    xGrpMsgForward :: VersionRangeChat -> User -> GroupInfo -> GroupMember -> MemberId -> ChatMessage 'Json -> UTCTime -> CM ()
+    xGrpMsgForward vr user gInfo@GroupInfo {groupId} m@GroupMember {memberRole, localDisplayName} memberId msg msgTs = do
       when (memberRole < GRAdmin) $ throwChatError (CEGroupContactRole localDisplayName)
       withStore' (\db -> runExceptT $ getGroupMemberByMemberId db vr user gInfo memberId) >>= \case
         Right author -> processForwardedMsg author msg
@@ -2785,12 +2785,12 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
             XMsgReact sharedMsgId (Just memId) reaction add -> groupMsgReaction gInfo author sharedMsgId memId reaction add rcvMsg msgTs
             XFileCancel sharedMsgId -> xFileCancelGroup gInfo author sharedMsgId
             XInfo p -> xInfoMember gInfo author p msgTs
-            XGrpMemNew memInfo -> xGrpMemNew gInfo author memInfo rcvMsg msgTs
-            XGrpMemRole memId memRole -> xGrpMemRole gInfo author memId memRole rcvMsg msgTs
-            XGrpMemDel memId withMessages -> xGrpMemDel gInfo author memId withMessages rcvMsg msgTs
-            XGrpLeave -> xGrpLeave gInfo author rcvMsg msgTs
-            XGrpDel -> xGrpDel gInfo author rcvMsg msgTs
-            XGrpInfo p' -> xGrpInfo gInfo author p' rcvMsg msgTs
+            XGrpMemNew memInfo -> xGrpMemNew vr user gInfo author memInfo rcvMsg msgTs
+            XGrpMemRole memId memRole -> xGrpMemRole vr user gInfo author memId memRole rcvMsg msgTs
+            XGrpMemDel memId withMessages -> xGrpMemDel vr user gInfo author memId withMessages rcvMsg msgTs
+            XGrpLeave -> xGrpLeave user gInfo author rcvMsg msgTs
+            XGrpDel -> xGrpDel vr user gInfo author rcvMsg msgTs
+            XGrpInfo p' -> xGrpInfo user gInfo author p' rcvMsg msgTs
             XGrpPrefs ps' -> xGrpPrefs gInfo author ps'
             _ -> messageError $ "x.grp.msg.forward: unsupported forwarded event " <> T.pack (show $ toCMEventTag event)
 
