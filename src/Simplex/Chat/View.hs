@@ -125,6 +125,7 @@ chatResponseToView hu cfg@ChatConfig {logLevel, showReactions, testView} liveIte
   CRUserServersValidation {} -> []
   CRUsageConditions current _ accepted_ -> viewUsageConditions current accepted_
   CRChatItemTTL u ttl -> ttyUser u $ viewChatItemTTL ttl
+  CRUserDefaultTimerTTL u defaultTimerTTL -> ttyUser u $ viewChatItemTTL (Just defaultTimerTTL)
   CRNetworkConfig netCfg -> viewNetworkConfig netCfg
   CRContactInfo u ct cStats customUserProfile -> ttyUser u $ viewContactInfo ct cStats customUserProfile
   CRGroupInfo u g s -> ttyUser u $ viewGroupInfo g s
