@@ -357,7 +357,7 @@ processAgentMsgRcvFile _corrId aFileId msg = do
 processAgentMessageConn :: VersionRangeChat -> User -> ACorrId -> ConnId -> AEvent 'AEConn -> CM ()
 processAgentMessageConn vr user corrId agentConnId agentMessage = do
   let userTTL = let User {defaultTimerTTL = ttl} = user in ttl
-      userId = let User {userId = uid} = user in uid
+      uid = user.userId
   -- Missing connection/entity errors here will be sent to the view but not shown as CRITICAL alert,
   -- as in this case no need to ACK message - we can't process messages for this connection anyway.
   -- SEDBException will be re-trown as CRITICAL as it is likely to indicate a temporary database condition
@@ -1799,7 +1799,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       ChatConfig {fileChunkSize} <- asks config
       let fInv@FileInvitation {fileName, fileSize} = mkValidFileInvitation fInv'
       inline <- receiveInlineMode fInv Nothing fileChunkSize
-      RcvFileTransfer {fileId, xftpRcvFile} <- withStore $ \db -> createRcvFileTransfer db userId ct fInv inline fileChunkSize
+      RcvFileTransfer {fileId, xftpRcvFile} <- withStore $ \db -> createRcvFileTransfer db uid ct fInv inline fileChunkSize
       let fileProtocol = if isJust xftpRcvFile then FPXFTP else FPSMP
           ciFile = Just $ CIFile {fileId, fileName, fileSize, fileSource = Nothing, fileStatus = CIFSRcvInvitation, fileProtocol}
           content = ciContentNoParse $ CIRcvMsgContent $ MCFile ""
@@ -1942,7 +1942,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     xFileAcptInvGroup :: GroupInfo -> GroupMember -> SharedMsgId -> Maybe ConnReqInvitation -> String -> CM ()
     xFileAcptInvGroup GroupInfo {groupId} m@GroupMember {activeConn} sharedMsgId fileConnReq_ fName = do
-      fileId <- withStore $ \db -> getGroupFileIdBySharedMsgId db userId groupId sharedMsgId
+      fileId <- withStore $ \db -> getGroupFileIdBySharedMsgId db uid groupId sharedMsgId
       (AChatItem _ _ _ ci) <- withStore $ \db -> getChatItemByFileId db vr user fileId
       assertSMPAcceptNotProhibited ci
       -- TODO check that it's not already accepted
@@ -1992,8 +1992,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
             withStore' $ \db -> do
               setViaGroupLinkHash db groupId connId
               createMemberConnectionAsync db user hostId connIds connChatVersion peerChatVRange subMode
-              updateGroupMemberStatusById db userId hostId GSMemAccepted
-              updateGroupMemberStatus db userId membership GSMemAccepted
+              updateGroupMemberStatusById db uid hostId GSMemAccepted
+              updateGroupMemberStatus db uid membership GSMemAccepted
             toView $ CEvtUserAcceptedGroupSent user gInfo {membership = membership {memberStatus = GSMemAccepted}} (Just ct)
           else do
             let content = CIRcvGroupInvitation (CIGroupInvitation {groupId, groupMemberId, localDisplayName, groupProfile, status = CIGISPending}) memRole
@@ -2020,7 +2020,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       if directOrUsed c
         then do
           ct' <- withStore' $ \db -> updateContactStatus db user c CSDeleted
-          contactConns <- withStore' $ \db -> getContactConnections db vr userId ct'
+          contactConns <- withStore' $ \db -> getContactConnections db vr uid ct'
           deleteAgentConnectionsAsync $ map aConnId contactConns
           forM_ contactConns $ \conn -> withStore' $ \db -> updateConnectionStatus db conn ConnDeleted
           activeConn' <- forM (contactConn ct') $ \conn -> pure conn {connStatus = ConnDeleted}
@@ -2029,7 +2029,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           toView $ CEvtNewChatItems user [AChatItem SCTDirect SMDRcv (DirectChat ct'') ci]
           toView $ CEvtContactDeletedByContact user ct''
         else do
-          contactConns <- withStore' $ \db -> getContactConnections db vr userId c
+          contactConns <- withStore' $ \db -> getContactConnections db vr uid c
           deleteAgentConnectionsAsync $ map aConnId contactConns
           withStore $ \db -> deleteContact db user c
       where
@@ -2103,7 +2103,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     xGrpLinkAcpt :: GroupInfo -> GroupMember -> GroupMemberRole -> CM ()
     xGrpLinkAcpt gInfo@GroupInfo {membership} m role = do
       membership' <- withStore' $ \db -> do
-        updateGroupMemberStatus db userId m GSMemConnected
+        updateGroupMemberStatus db uid m GSMemConnected
         updateGroupMemberAccepted db user membership role
       let m' = m {memberStatus = GSMemConnected}
       toView $ CEvtUserJoinedGroup user gInfo {membership = membership'} m'
@@ -2470,7 +2470,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       hostConn <- withStore $ \db -> getConnectionById db vr user hostConnId
       let msg = XGrpMemInv memberId IntroInvitation {groupConnReq, directConnReq}
       void $ sendDirectMemberMessage hostConn msg groupId
-      withStore' $ \db -> updateGroupMemberStatusById db userId groupMemberId GSMemIntroInvited
+      withStore' $ \db -> updateGroupMemberStatusById db uid groupMemberId GSMemIntroInvited
 
     xGrpMemInv :: GroupInfo -> GroupMember -> MemberId -> IntroInvitation -> CM ()
     xGrpMemInv gInfo m memId introInv = do
