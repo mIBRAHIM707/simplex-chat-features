@@ -2067,12 +2067,9 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
         Profile {preferences = rcvPrefs_, defaultTimerTTL = rcvDefaultTTL} = p'
         rcvTTL = fromIntegral <$> prefParam (getPreference SCFTimedMessages rcvPrefs_)
         ctUserPrefs' =
-          let -- Use the user's stored defaultTimerTTL (DB field) as the local user's default.
-              -- Convert to the same Int type used by TimedMessagesPreference.ttl (Maybe Int).
-              userDefaultTTL :: Maybe Int
-              userDefaultTTL = Just . fromIntegral $ let User {defaultTimerTTL = ttl} = user in ttl
-
-              -- If both users have default timers, use the minimum (converted to Int)
+          let userDefault = getPreference SCFTimedMessages (fullPreferences user)
+              userDefaultTTL = prefParam userDefault
+              -- If both users have default timers, use the minimum
               negotiatedTTL = case (userDefaultTTL, rcvDefaultTTL) of
                 (Just uTTL, Just rTTL) -> Just $ min uTTL (fromIntegral rTTL)
                 (Just uTTL, Nothing) -> Just uTTL
