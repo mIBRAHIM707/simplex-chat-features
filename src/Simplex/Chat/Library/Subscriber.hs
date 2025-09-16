@@ -792,9 +792,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
             withStore' $ \db -> do
               let User {userId = uid} = user
               updateGroupMemberStatus db uid m GSMemConnected
-              unless (memberActive membership) $
-                let User {userId = uid} = user
-                updateGroupMemberStatus db uid membership GSMemConnected
+              unless (memberActive membership) $ updateGroupMemberStatus db uid membership GSMemConnected
             -- possible improvement: check for each pending message, requires keeping track of connection state
             unless (connDisabled conn) $ sendPendingGroupMessages user m conn
             pure GSMemConnected
