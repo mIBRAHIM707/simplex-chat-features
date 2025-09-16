@@ -464,7 +464,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                   setConnConnReqInv db user connId cReq
                   getXGrpMemIntroContDirect db user ct
                 forM_ contData $ \(hostConnId, xGrpMemIntroCont) ->
-                  sendXGrpMemInv hostConnId (Just directConnReq) xGrpMemIntroCont
+                  sendXGrpMemInv vr user hostConnId (Just directConnReq) xGrpMemIntroCont
               CRContactUri _ -> throwChatError $ CECommandError "unexpected ConnectionRequestUri type"
         MSG msgMeta _msgFlags msgBody -> do
           tags <- newTVarIO []
@@ -701,7 +701,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                     hostConnId <- withStore $ \db -> do
                       liftIO $ setConnConnReqInv db user connId cReq
                       getHostConnId db user groupId
-                    sendXGrpMemInv hostConnId Nothing XGrpMemIntroCont {groupId, groupMemberId, memberId, groupConnReq}
+                    sendXGrpMemInv vr user hostConnId Nothing XGrpMemIntroCont {groupId, groupMemberId, memberId, groupConnReq}
               -- TODO REMOVE LEGACY vvv
               -- [async agent commands] group link auto-accept continuation on receiving INV
               CFCreateConnGrpInv -> do
@@ -874,8 +874,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
               XGrpLinkAcpt role -> xGrpLinkAcpt gInfo m' role
               XGrpMemNew memInfo -> xGrpMemNew gInfo m' memInfo msg brokerTs
               XGrpMemIntro memInfo memRestrictions_ -> xGrpMemIntro gInfo m' memInfo memRestrictions_
-              XGrpMemInv memId introInv -> xGrpMemInv gInfo m' memId introInv
-              XGrpMemFwd memInfo introInv -> xGrpMemFwd gInfo m' memInfo introInv
+              XGrpMemInv memId introInv -> xGrpMemInv vr user gInfo m' memId introInv
+              XGrpMemFwd memInfo introInv -> xGrpMemFwd vr user gInfo m' memInfo introInv
               XGrpMemRole memId memRole -> xGrpMemRole gInfo m' memId memRole msg brokerTs
               XGrpMemRestrict memId memRestrictions -> xGrpMemRestrict gInfo m' memId memRestrictions msg brokerTs
               XGrpMemCon memId -> xGrpMemCon gInfo m' memId
@@ -1796,6 +1796,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     -- TODO remove once XFile is discontinued
     processFileInvitation' :: Contact -> FileInvitation -> RcvMessage -> MsgMeta -> CM ()
     processFileInvitation' ct fInv' msg@RcvMessage {sharedMsgId_} msgMeta = do
+      let User {userId = uid} = user
       ChatConfig {fileChunkSize} <- asks config
       let fInv@FileInvitation {fileName, fileSize} = mkValidFileInvitation fInv'
       inline <- receiveInlineMode fInv Nothing fileChunkSize
@@ -1811,6 +1812,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     -- TODO remove once XFile is discontinued
     processGroupFileInvitation' :: GroupInfo -> GroupMember -> FileInvitation -> RcvMessage -> UTCTime -> CM ()
     processGroupFileInvitation' gInfo m fInv@FileInvitation {fileName, fileSize} msg@RcvMessage {sharedMsgId_} brokerTs = do
+      let User {userId = uid} = user
       ChatConfig {fileChunkSize} <- asks config
       inline <- receiveInlineMode fInv Nothing fileChunkSize
       RcvFileTransfer {fileId, xftpRcvFile} <- withStore $ \db -> createRcvGroupFileTransfer db uid m fInv inline fileChunkSize
@@ -1837,6 +1839,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     xFileCancel :: Contact -> SharedMsgId -> CM ()
     xFileCancel Contact {contactId} sharedMsgId = do
+      let User {userId = uid} = user
       fileId <- withStore $ \db -> getFileIdBySharedMsgId db uid contactId sharedMsgId
       ft <- withStore (\db -> getRcvFileTransfer db user fileId)
       unless (rcvFileCompleteOrCancelled ft) $ do
@@ -1911,6 +1914,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     bFileChunkGroup :: GroupInfo -> SharedMsgId -> FileChunk -> MsgMeta -> CM ()
     bFileChunkGroup GroupInfo {groupId} sharedMsgId chunk meta = do
+      let User {userId = uid} = user
       ft <- withStore $ \db -> getGroupFileIdBySharedMsgId db uid groupId sharedMsgId >>= getRcvFileTransfer db user
       receiveInlineChunk ft chunk meta
 
@@ -1926,6 +1930,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     xFileCancelGroup :: GroupInfo -> GroupMember -> SharedMsgId -> CM ()
     xFileCancelGroup g@GroupInfo {groupId} GroupMember {groupMemberId, memberId} sharedMsgId = do
+      let User {userId = uid} = user
       fileId <- withStore $ \db -> getGroupFileIdBySharedMsgId db uid groupId sharedMsgId
       CChatItem msgDir ChatItem {chatDir} <- withStore $ \db -> getGroupChatItemBySharedMsgId db user g groupMemberId sharedMsgId
       case (msgDir, chatDir) of
@@ -1942,6 +1947,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     xFileAcptInvGroup :: GroupInfo -> GroupMember -> SharedMsgId -> Maybe ConnReqInvitation -> String -> CM ()
     xFileAcptInvGroup GroupInfo {groupId} m@GroupMember {activeConn} sharedMsgId fileConnReq_ fName = do
+      let User {userId = uid} = user
       fileId <- withStore $ \db -> getGroupFileIdBySharedMsgId db uid groupId sharedMsgId
       (AChatItem _ _ _ ci) <- withStore $ \db -> getChatItemByFileId db vr user fileId
       assertSMPAcceptNotProhibited ci
@@ -1976,6 +1982,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     processGroupInvitation :: Contact -> GroupInvitation -> RcvMessage -> MsgMeta -> CM ()
     processGroupInvitation ct inv msg msgMeta = do
+      let User {userId = uid} = user
       let Contact {localDisplayName = c, activeConn} = ct
           GroupInvitation {fromMember = (MemberIdRole fromMemId fromRole), invitedMember = (MemberIdRole memId memRole), connRequest, groupLinkId} = inv
       forM_ activeConn $ \Connection {connId, connChatVersion, peerChatVRange, customUserProfileId, groupLinkId = groupLinkId'} -> do
@@ -2016,7 +2023,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     xInfo c p' = void $ processContactProfileUpdate c p' True
 
     xDirectDel :: Contact -> RcvMessage -> MsgMeta -> CM ()
-    xDirectDel c msg msgMeta =
+    xDirectDel c msg msgMeta = do
+      let User {userId = uid} = user
       if directOrUsed c
         then do
           ct' <- withStore' $ \db -> updateContactStatus db user c CSDeleted
@@ -2102,6 +2110,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
 
     xGrpLinkAcpt :: GroupInfo -> GroupMember -> GroupMemberRole -> CM ()
     xGrpLinkAcpt gInfo@GroupInfo {membership} m role = do
+      let User {userId = uid} = user
       membership' <- withStore' $ \db -> do
         updateGroupMemberStatus db uid m GSMemConnected
         updateGroupMemberAccepted db user membership role
@@ -2465,18 +2474,20 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
       where
         createConn subMode = createAgentConnectionAsync user CFCreateConnGrpMemInv (chatHasNtfs chatSettings) SCMInvitation subMode
 
-    sendXGrpMemInv :: Int64 -> Maybe ConnReqInvitation -> XGrpMemIntroCont -> CM ()
-    sendXGrpMemInv hostConnId directConnReq XGrpMemIntroCont {groupId, groupMemberId, memberId, groupConnReq} = do
+    sendXGrpMemInv :: VersionRangeChat -> User -> Int64 -> Maybe ConnReqInvitation -> XGrpMemIntroCont -> CM ()
+    sendXGrpMemInv vr user hostConnId directConnReq XGrpMemIntroCont {groupId, groupMemberId, memberId, groupConnReq} = do
+      let User {userId = uid} = user
       hostConn <- withStore $ \db -> getConnectionById db vr user hostConnId
       let msg = XGrpMemInv memberId IntroInvitation {groupConnReq, directConnReq}
       void $ sendDirectMemberMessage hostConn msg groupId
       withStore' $ \db -> updateGroupMemberStatusById db uid groupMemberId GSMemIntroInvited
 
-    xGrpMemInv :: GroupInfo -> GroupMember -> MemberId -> IntroInvitation -> CM ()
-    xGrpMemInv gInfo m memId introInv = do
+    xGrpMemInv :: VersionRangeChat -> User -> GroupInfo -> GroupMember -> MemberId -> IntroInvitation -> CM ()
+    xGrpMemInv vr user gInfo m memId introInv = do
+      let User {userId = uid} = user
       case memberCategory m of
         GCInviteeMember ->
-          withStore' (\db -> runExceptT $ getGroupMemberByMemberId db vr user gInfo memId) >>= \case
+          withStore' (\db -> runExceptT $ getGroupMemberByMemberId db vr uid gInfo memId) >>= \case
             Left _ -> messageError "x.grp.mem.inv error: referenced member does not exist"
             Right reMember -> do
               GroupMemberIntro {introId} <- withStore $ \db -> saveIntroInvitation db reMember m introInv
@@ -2485,12 +2496,13 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                   \db -> updateIntroStatus db introId GMIntroInvForwarded
         _ -> messageError "x.grp.mem.inv can be only sent by invitee member"
 
-    xGrpMemFwd :: GroupInfo -> GroupMember -> MemberInfo -> IntroInvitation -> CM ()
-    xGrpMemFwd gInfo@GroupInfo {membership, chatSettings} m memInfo@(MemberInfo memId memRole memChatVRange _) introInv@IntroInvitation {groupConnReq, directConnReq} = do
+    xGrpMemFwd :: VersionRangeChat -> User -> GroupInfo -> GroupMember -> MemberInfo -> IntroInvitation -> CM ()
+    xGrpMemFwd vr user gInfo@GroupInfo {membership, chatSettings} m memInfo@(MemberInfo memId memRole memChatVRange _) introInv@IntroInvitation {groupConnReq, directConnReq} = do
+      let User {userId = uid} = user
       let GroupMember {memberId = membershipMemId} = membership
       checkHostRole m memRole
       toMember <-
-        withStore' (\db -> runExceptT $ getGroupMemberByMemberId db vr user gInfo memId) >>= \case
+        withStore' (\db -> runExceptT $ getGroupMemberByMemberId db vr uid gInfo memId) >>= \case
           -- TODO if the missed messages are correctly sent as soon as there is connection before anything else is sent
           -- the situation when member does not exist is an error
           -- member receiving x.grp.mem.fwd should have also received x.grp.mem.new prior to that.
