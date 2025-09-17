@@ -141,6 +141,39 @@ fun ChatView(
               searchText.value = value
             }
           }
+
+          // --- BEGIN: Disappearing message timer indicator ---
+          val timerSeconds = chatInfo.timedMessagesTTL
+          if (timerSeconds != null && timerSeconds > 0) {
+            val timerText = when {
+              timerSeconds < 60 -> "${timerSeconds} sec"
+              timerSeconds < 3600 -> "${timerSeconds / 60} min"
+              timerSeconds < 86400 -> "${timerSeconds / 3600} hr"
+              timerSeconds % 86400 == 0 -> "${timerSeconds / 86400} day(s)"
+              else -> "${timerSeconds} sec"
+            }
+            Box(
+              Modifier
+                .fillMaxWidth()
+                .padding(top = 4.dp, bottom = 4.dp),
+              contentAlignment = Alignment.Center
+            ) {
+              Surface(
+                color = MaterialTheme.colors.secondary.copy(alpha = 0.08f),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.padding(horizontal = 12.dp)
+              ) {
+                Text(
+                  text = "Disappearing messages: $timerText",
+                  color = MaterialTheme.colors.secondary,
+                  fontSize = 13.sp,
+                  modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+              }
+            }
+          }
+          // --- END: Disappearing message timer indicator ---
+
           ChatLayout(
             chatsCtx = chatsCtx,
             remoteHostId = remoteHostId,

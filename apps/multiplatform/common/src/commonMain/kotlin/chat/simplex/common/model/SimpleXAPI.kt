@@ -5346,7 +5346,8 @@ fun contactUserPrefsToFeaturesAllowed(contactUserPreferences: ContactUserPrefere
   val allow = pref.pref.allow
   return ContactFeaturesAllowed(
     timedMessagesAllowed = allow == FeatureAllowed.YES || allow == FeatureAllowed.ALWAYS,
-    timedMessagesTTL = pref.pref.ttl,
+  // If a chat-level TTL is present in the contact info, prefer it over per-user preference
+  timedMessagesTTL = pref.pref.ttl,
     fullDelete = contactUserPrefToFeatureAllowed(contactUserPreferences.fullDelete),
     reactions = contactUserPrefToFeatureAllowed(contactUserPreferences.reactions),
     voice = contactUserPrefToFeatureAllowed(contactUserPreferences.voice),

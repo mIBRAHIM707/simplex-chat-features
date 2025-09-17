@@ -1279,7 +1279,7 @@ sealed class ChatInfo: SomeChat, NamedChat {
     override val sendMsgEnabled get() = contact.sendMsgEnabled
     override val incognito get() = contact.incognito
     override fun featureEnabled(feature: ChatFeature) = contact.featureEnabled(feature)
-    override val timedMessagesTTL: Int? get() = contact.timedMessagesTTL
+  override val timedMessagesTTL: Int? get() = contact.chatItemTTL?.toInt() ?: contact.timedMessagesTTL
     override val createdAt get() = contact.createdAt
     override val updatedAt get() = contact.updatedAt
     override val displayName get() = contact.displayName
@@ -1305,7 +1305,7 @@ sealed class ChatInfo: SomeChat, NamedChat {
     override val sendMsgEnabled get() = groupInfo.sendMsgEnabled
     override val incognito get() = groupInfo.incognito
     override fun featureEnabled(feature: ChatFeature) = groupInfo.featureEnabled(feature)
-    override val timedMessagesTTL: Int? get() = groupInfo.timedMessagesTTL
+  override val timedMessagesTTL: Int? get() = groupInfo.chatItemTTL?.toInt() ?: groupInfo.timedMessagesTTL
     override val createdAt get() = groupInfo.createdAt
     override val updatedAt get() = groupInfo.updatedAt
     override val displayName get() = groupInfo.displayName

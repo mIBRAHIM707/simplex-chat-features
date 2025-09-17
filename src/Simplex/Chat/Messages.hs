@@ -434,7 +434,9 @@ ttl' :: CITimed -> Int
 ttl' CITimed {ttl} = ttl
 
 contactTimedTTL :: Contact -> Maybe (Maybe Int)
-contactTimedTTL Contact {mergedPreferences = ContactUserPreferences {timedMessages = ContactUserPreference {enabled, userPreference}}}
+contactTimedTTL Contact {chatItemTTL = cTTL, mergedPreferences = ContactUserPreferences {timedMessages = ContactUserPreference {enabled, userPreference}}}
+  -- If a chat-level TTL is persisted for this contact, prefer it (feature enabled with that TTL)
+  | Just ttl64 <- cTTL = Just (Just (fromIntegral ttl64))
   | forUser enabled && forContact enabled = Just ttl
   | otherwise = Nothing
   where
@@ -443,7 +445,9 @@ contactTimedTTL Contact {mergedPreferences = ContactUserPreferences {timedMessag
       CUPUser {preference} -> preference
 
 groupTimedTTL :: GroupInfo -> Maybe (Maybe Int)
-groupTimedTTL GroupInfo {fullGroupPreferences = FullGroupPreferences {timedMessages = TimedMessagesGroupPreference {enable, ttl}}}
+groupTimedTTL GroupInfo {chatItemTTL = gTTL, fullGroupPreferences = FullGroupPreferences {timedMessages = TimedMessagesGroupPreference {enable, ttl}}}
+  -- Prefer persisted group-level TTL if present
+  | Just ttl64 <- gTTL = Just (Just (fromIntegral ttl64))
   | enable == FEOn = Just ttl
   | otherwise = Nothing
 

@@ -255,6 +255,8 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
         Just ttl -> setPreference_ SCFTimedMessages (Just $ TimedMessagesPreference {allow = FAYes, ttl = Just (fromIntegral ttl)}) emptyChatPrefs
         Nothing -> emptyChatPrefs
       mergedPreferences = contactUserPreferences user userPreferences profilePreferences $ connIncognito conn
+  -- Persist the negotiated chat TTL into the contacts table so it is authoritative for the chat
+  forM_ initialTTL $ \ttlVal -> liftIO $ setDirectChatTTL db contactId (Just $ fromIntegral ttlVal)
   pure $
     Contact
       { contactId,
@@ -273,7 +275,7 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
         contactGroupMemberId = Nothing,
         contactGrpInvSent = False,
         chatTags = [],
-        chatItemTTL = Nothing,
+        chatItemTTL = fmap fromIntegral initialTTL,
         uiThemes = Nothing,
         chatDeleted = False,
         customData = Nothing

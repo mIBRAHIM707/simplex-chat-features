@@ -494,6 +494,11 @@ fun ComposeView(
     }
 
     suspend fun forwardItem(rhId: Long?, forwardedItem: List<ChatItem>, fromChatInfo: ChatInfo, ttl: Int?): List<ChatItem>? {
+      // Determine whether to send an explicit ttl when forwarding. If chat-level TTL exists
+      // and the user didn't explicitly choose an override, omit ttl so the server applies the chat TTL.
+      val chatLevelTTLForForward = chat.chatInfo.timedMessagesTTL
+      val ttlToSendForForward: Int? = if (ttl != null && ttl != chatLevelTTLForForward) ttl else null
+
       val chatItems = controller.apiForwardChatItems(
         rh = rhId,
         toChatType = chat.chatInfo.chatType,
@@ -501,7 +506,7 @@ fun ComposeView(
         fromChatType = fromChatInfo.chatType,
         fromChatId = fromChatInfo.apiId,
         itemIds = forwardedItem.map { it.id },
-        ttl = ttl
+        ttl = ttlToSendForForward
       )
 
       withContext(Dispatchers.Main) {
@@ -737,9 +742,15 @@ fun ComposeView(
             localPath = file.filePath
           )
         }
+
+        // If the chat has an authoritative chat-level TTL, omit sending the per-user default
+        // unless the user explicitly chose a different TTL for this message.
+        val chatLevelTTLForSend = chat.chatInfo.timedMessagesTTL
+        val ttlToSendForMessage: Int? = if (ttl != null && ttl != chatLevelTTLForSend) ttl else null
+
         val sendResult = send(chat, content, if (index == 0) quotedItemId else null, file,
           live = if (content !is MsgContent.MCVoice && index == msgs.lastIndex) live else false,
-          ttl = ttl,
+          ttl = ttlToSendForMessage,
           mentions = cs.memberMentions
         )
         sent = if (sendResult != null) listOf(sendResult) else null
