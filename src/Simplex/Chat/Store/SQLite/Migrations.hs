@@ -131,7 +131,6 @@ import Simplex.Chat.Store.SQLite.Migrations.M20250130_indexes
 import Simplex.Chat.Store.SQLite.Migrations.M20250402_short_links
 import Simplex.Chat.Store.SQLite.Migrations.M20250512_member_admission
 import Simplex.Chat.Store.SQLite.Migrations.M20250913_default_timer_ttl
-import Simplex.Chat.Store.SQLite.Migrations.M20250913_default_timer_ttl
 import Simplex.Messaging.Agent.Store.Shared (Migration (..))
 
 schemaMigrations :: [(String, Query, Maybe Query)]
