@@ -2099,7 +2099,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
         Profile {preferences = rcvPrefs_, defaultTimerTTL = rcvDefaultTTL} = p'
         rcvTTL = fromIntegral <$> prefParam (getPreference SCFTimedMessages rcvPrefs_)
         userDefault = getPreference SCFTimedMessages (fullPreferences user)
-        userDefaultTTL = prefParam userDefault
+        userDefaultTTL = fromIntegral <$> prefParam userDefault
         ctUserPrefs' =
           let
               -- negotiatedTTL computed above when used in DB block; build new contact timed preference wrapper
