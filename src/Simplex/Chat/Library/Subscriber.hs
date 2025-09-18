@@ -58,7 +58,7 @@ import Simplex.Chat.Store.Profiles
 import Simplex.Chat.Store.Shared
 import Simplex.Chat.Types
 import Simplex.Chat.Types.Preferences
-import qualified Database.SQLite.Simple as DB
+import qualified Database.SQLite.Simple as SQL
 import Simplex.Chat.Types.Shared
 import Simplex.FileTransfer.Description (ValidFileDescription)
 import qualified Simplex.FileTransfer.Description as FD
@@ -2056,7 +2056,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                 -- update stored user preferences for contact
                 c' <- liftIO $ updateContactUserPreferences db user c ctUserPrefs'
                 -- compute negotiated TTL (Maybe Int64)
-                let contactChatTTL = chatItemTTL c
+                let contactChatTTL = chatItemTTL (c :: Contact)
                     contactPrefTTL = prefParam ctUserTMPref
                     -- Local candidate TTL: if chatItemTTL is Nothing (initial connection), use user's global default
                     -- otherwise prefer the contact-specific preference (if set) or fall back to existing persisted chat TTL
