@@ -1154,14 +1154,22 @@ deleteTimedItem user (ChatRef cType chatId, itemId) deleteAt = do
   vr <- chatVersionRange
   case cType of
     CTDirect -> do
-      (ct, ci) <- withStore $ \db -> (,) <$> getContact db vr user chatId <*> getDirectChatItem db user chatId itemId
-      deletions <- deleteDirectCIs user ct [ci]
-      toView $ CEvtChatItemsDeleted user deletions True True
+      (ct, ciCurrent) <- withStore $ \db -> (,) <$> getContact db vr user chatId <*> getDirectChatItem db user chatId itemId
+      let mDeleteAtCurrent = chatItemTimed ciCurrent >>= timedDeleteAt'
+      if mDeleteAtCurrent == Just deleteAt
+        then do
+          deletions <- deleteDirectCIs user ct [ciCurrent]
+          toView $ CEvtChatItemsDeleted user deletions True True
+        else pure ()
     CTGroup -> do
-      (gInfo, ci) <- withStore $ \db -> (,) <$> getGroupInfo db vr user chatId <*> getGroupChatItem db user chatId itemId
-      deletedTs <- liftIO getCurrentTime
-      deletions <- deleteGroupCIs user gInfo [ci] Nothing deletedTs
-      toView $ CEvtChatItemsDeleted user deletions True True
+      (gInfo, ciCurrent) <- withStore $ \db -> (,) <$> getGroupInfo db vr user chatId <*> getGroupChatItem db user chatId itemId
+      let mDeleteAtCurrent = chatItemTimed ciCurrent >>= timedDeleteAt'
+      if mDeleteAtCurrent == Just deleteAt
+        then do
+          deletedTs <- liftIO getCurrentTime
+          deletions <- deleteGroupCIs user gInfo [ciCurrent] Nothing deletedTs
+          toView $ CEvtChatItemsDeleted user deletions True True
+        else pure ()
     _ -> eToView $ ChatError $ CEInternalError "bad deleteTimedItem cType"
 
 startUpdatedTimedItemThread :: User -> ChatRef -> ChatItem c d -> ChatItem c d -> CM ()

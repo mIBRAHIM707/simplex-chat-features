@@ -1458,7 +1458,38 @@ processChatCommand' vr = \case
     -- Validate TTL: must be non-negative and not unreasonably large (1 year cap)
     let maxTTL = 31536000 :: Int64 -- 1 year in seconds
     when (newTTL < 0 || newTTL > maxTTL) $ throwChatError $ CECommandError "invalid default_timer_ttl"
+    -- persist new user default
     withFastStore' $ \db -> setUserDefaultTimerTTL db user newTTL
+
+    -- Local-default sweep: for already-connected contacts that don't have a persisted
+    -- per-chat TTL (chat_item_ttl IS NULL), apply the new local default as the
+    -- initial negotiated TTL (respecting the contact's own default when present).
+    -- This mirrors the logic used when creating a direct contact so that the
+    -- user's default only applies during initial negotiation.
+    -- We run this in the store and then emit view updates for any contacts changed.
+    updatedContacts <- withStore' $ \db -> do
+      -- enumerate connected contacts
+      contacts <- getUserContacts db vr user
+      changed <- forM contacts $ \c -> case chatItemTTL c of
+        Just _ -> pure Nothing
+        Nothing -> do
+          let Contact {contactId} = c
+              -- Note: the contact's original remote Profile.defaultTimerTTL is not
+              -- persisted in LocalProfile; therefore we cannot re-check the remote
+              -- default here. Per policy the user-global default is only used for
+              -- initial negotiation, so apply the new local default for contacts
+              -- missing a persisted chat-level TTL.
+              negotiated = Just newTTL
+          -- persist negotiated chat-level TTL
+          setDirectChatTTL db contactId negotiated
+          -- retrieve updated contact to reflect the persisted change
+          c' <- getContact db vr user contactId
+          pure $ Just (c, c')
+      pure $ catMaybes changed
+
+    -- emit view events for updated contacts so UI/in-memory controllers refresh
+    forM_ updatedContacts $ \(fromC, toC) -> toView $ CEvtContactUpdated user fromC toC
+
     ok user
   SetUserDefaultTimerTTL newTTL -> withUser' $ \User {userId} -> do
     -- Validate TTL locally before dispatching the API command
