@@ -1159,7 +1159,7 @@ deleteTimedItem user (ChatRef cType chatId, itemId) deleteAt = do
             CChatItem _ ci -> chatItemTimed ci >>= timedDeleteAt'
       if mDeleteAtCurrent == Just deleteAt
         then do
-          deletions <- deleteDirectCIs user ct [ciCurrent]
+          deletions <- deleteDirectCIs user ct [ciCurrentWrapped]
           toView $ CEvtChatItemsDeleted user deletions True True
         else pure ()
     CTGroup -> do
@@ -1169,7 +1169,7 @@ deleteTimedItem user (ChatRef cType chatId, itemId) deleteAt = do
       if mDeleteAtCurrent == Just deleteAt
         then do
           deletedTs <- liftIO getCurrentTime
-          deletions <- deleteGroupCIs user gInfo [ciCurrent] Nothing deletedTs
+          deletions <- deleteGroupCIs user gInfo [ciCurrentWrapped] Nothing deletedTs
           toView $ CEvtChatItemsDeleted user deletions True True
         else pure ()
     _ -> eToView $ ChatError $ CEInternalError "bad deleteTimedItem cType"
