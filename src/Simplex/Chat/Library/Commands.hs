@@ -1470,10 +1470,9 @@ processChatCommand' vr = \case
     updatedContacts <- withStore' $ \db -> do
       -- enumerate connected contacts
       contacts <- getUserContacts db vr user
-      changed <- forM contacts $ \c -> case chatItemTTL c of
-        Just _ -> pure Nothing
-        Nothing -> do
-          let Contact {contactId} = c
+      changed <- forM contacts $ \c -> case c of
+        Contact {chatItemTTL = Just _} -> pure Nothing
+        Contact {chatItemTTL = Nothing, contactId} -> do
               -- Note: the contact's original remote Profile.defaultTimerTTL is not
               -- persisted in LocalProfile; therefore we cannot re-check the remote
               -- default here. Per policy the user-global default is only used for
