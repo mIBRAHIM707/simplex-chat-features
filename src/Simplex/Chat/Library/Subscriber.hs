@@ -2056,7 +2056,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                 -- update stored user preferences for contact
                 c' <- liftIO $ updateContactUserPreferences db user c ctUserPrefs'
                 -- compute negotiated TTL (Maybe Int64)
-                let contactChatTTL = chatItemTTL (c :: Contact)
+                let Contact {chatItemTTL = contactChatTTL} = c
                     contactPrefTTL = prefParam ctUserTMPref
                     -- Local candidate TTL: if chatItemTTL is Nothing (initial connection), use user's global default
                     -- otherwise prefer the contact-specific preference (if set) or fall back to existing persisted chat TTL
