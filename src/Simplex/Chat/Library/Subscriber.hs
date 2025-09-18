@@ -2069,8 +2069,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                       (Just uTTL, Nothing) -> Just uTTL
                       (Nothing, Just rTTL) -> Just (fromIntegral rTTL)
                       (Nothing, Nothing) -> Nothing
-                -- persist chat-level TTL
-                liftIO $ setDirectChatTTL db ctId negotiatedTTL
+                -- persist chat-level TTL (ensure Int -> Int64 conversion)
+                liftIO $ setDirectChatTTL db ctId (fromIntegral <$> negotiatedTTL)
                 case negotiatedTTL of
                   Nothing -> do
                     -- disable disappearing for future messages only; do NOT clear timers for messages sent before this change
