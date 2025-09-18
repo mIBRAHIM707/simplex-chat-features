@@ -1467,9 +1467,9 @@ processChatCommand' vr = \case
     -- This mirrors the logic used when creating a direct contact so that the
     -- user's default only applies during initial negotiation.
     -- We run this in the store and then emit view updates for any contacts changed.
-    updatedContacts <- withStore' $ \db -> do
-      -- enumerate connected contacts
-      contacts <- getUserContacts db vr user
+    updatedContacts <- withStore $ \db -> do
+      -- enumerate connected contacts (getUserContacts is IO; lift into ExceptT)
+      contacts <- liftIO $ getUserContacts db vr user
       changed <- forM contacts $ \c -> case c of
         Contact {chatItemTTL = Just _} -> pure Nothing
         Contact {chatItemTTL = Nothing, contactId} -> do
@@ -1479,9 +1479,9 @@ processChatCommand' vr = \case
           -- initial negotiation, so apply the new local default for contacts
           -- missing a persisted chat-level TTL.
           let negotiated = Just newTTL
-          -- persist negotiated chat-level TTL
-          setDirectChatTTL db contactId negotiated
-          -- retrieve updated contact to reflect the persisted change
+          -- persist negotiated chat-level TTL (IO; lift into ExceptT)
+          liftIO $ setDirectChatTTL db contactId negotiated
+          -- retrieve updated contact to reflect the persisted change (getContact is ExceptT)
           c' <- getContact db vr user contactId
           pure $ Just (c, c')
       pure $ catMaybes changed
