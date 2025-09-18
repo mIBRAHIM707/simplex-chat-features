@@ -2051,36 +2051,33 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           -- Persist updated contact preferences and also persist negotiated chat-level TTL
           -- If negotiated TTL changed, clear or reschedule unread timed items accordingly.
           (c', timedDeleteAtList) <- withStore $ \db -> do
-            if Just userTTL == rcvTTL
-              then (,) <$> updateContactProfile db user c p' <*> pure []
-              else do
-                -- update stored user preferences for contact
-                c' <- liftIO $ updateContactUserPreferences db user c ctUserPrefs'
-                -- compute negotiated TTL (Maybe Int64)
-                let Contact {chatItemTTL = contactChatTTL} = c
-                    contactPrefTTL = fromIntegral <$> (prefParam =<< ctUserTMPref)
-                    -- Local candidate TTL: if chatItemTTL is Nothing (initial connection), use user's global default
-                    -- otherwise prefer the contact-specific preference (if set) or fall back to existing persisted chat TTL
-                    localCandidateTTL = case contactChatTTL of
-                      Nothing -> userDefaultTTL
-                      Just _ -> contactPrefTTL <|> (fromIntegral <$> contactChatTTL)
-                    negotiatedTTL = case (localCandidateTTL, rcvDefaultTTL) of
-                      (Just uTTL, Just rTTL) -> Just $ min uTTL (fromIntegral rTTL)
-                      (Just uTTL, Nothing) -> Just uTTL
-                      (Nothing, Just rTTL) -> Just (fromIntegral rTTL)
-                      (Nothing, Nothing) -> Nothing
-                -- persist chat-level TTL (ensure Int -> Int64 conversion)
-                liftIO $ setDirectChatTTL db ctId (fromIntegral <$> negotiatedTTL)
-                case negotiatedTTL of
-                  Nothing -> do
-                    -- disable disappearing for future messages only; do NOT clear timers for messages sent before this change
-                    pure (c', [])
-                  Just _ -> do
-                    -- For unread timed items, preserve each message's own timed_ttl and schedule deleteAt = now + timed_ttl
-                    currentTs <- liftIO getCurrentTime
-                    timedItems <- liftIO $ getDirectUnreadTimedItems db user ctId -- returns [(ChatItemId, Int)] where Int is the per-message ttl
-                    timedDeleteAtList <- liftIO $ setDirectChatItemsDeleteAt db user ctId timedItems currentTs
-                    pure (c', timedDeleteAtList)
+            -- update stored user preferences for contact
+            c' <- liftIO $ updateContactUserPreferences db user c ctUserPrefs'
+            -- compute negotiated TTL (Maybe Int64)
+            let Contact {chatItemTTL = contactChatTTL} = c
+                contactPrefTTL = fromIntegral <$> (prefParam =<< ctUserTMPref)
+                -- Local candidate TTL: if chatItemTTL is Nothing (initial connection), use user's global default
+                -- otherwise prefer the contact-specific preference (if set) or fall back to existing persisted chat TTL
+                localCandidateTTL = case contactChatTTL of
+                  Nothing -> userDefaultTTL
+                  Just _ -> contactPrefTTL <|> (fromIntegral <$> contactChatTTL)
+                negotiatedTTL = case (localCandidateTTL, rcvDefaultTTL) of
+                  (Just uTTL, Just rTTL) -> Just $ min uTTL (fromIntegral rTTL)
+                  (Just uTTL, Nothing) -> Just uTTL
+                  (Nothing, Just rTTL) -> Just (fromIntegral rTTL)
+                  (Nothing, Nothing) -> Nothing
+            -- persist chat-level TTL (ensure Int -> Int64 conversion)
+            liftIO $ setDirectChatTTL db ctId (fromIntegral <$> negotiatedTTL)
+            case negotiatedTTL of
+              Nothing -> do
+                -- disable disappearing for future messages only; do NOT clear timers for messages sent before this change
+                pure (c', [])
+              Just _ -> do
+                -- For unread timed items, preserve each message's own timed_ttl and schedule deleteAt = now + timed_ttl
+                currentTs <- liftIO getCurrentTime
+                timedItems <- liftIO $ getDirectUnreadTimedItems db user ctId -- returns [(ChatItemId, Int)] where Int is the per-message ttl
+                timedDeleteAtList <- liftIO $ setDirectChatItemsDeleteAt db user ctId timedItems currentTs
+                pure (c', timedDeleteAtList)
           when (directOrUsed c' && createItems) $ do
             createProfileUpdatedItem c'
             lift $ createRcvFeatureItems user c c'
