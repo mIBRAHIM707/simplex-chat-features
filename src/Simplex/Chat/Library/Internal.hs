@@ -1154,16 +1154,18 @@ deleteTimedItem user (ChatRef cType chatId, itemId) deleteAt = do
   vr <- chatVersionRange
   case cType of
     CTDirect -> do
-      (ct, ciCurrent) <- withStore $ \db -> (,) <$> getContact db vr user chatId <*> getDirectChatItem db user chatId itemId
-      let mDeleteAtCurrent = chatItemTimed ciCurrent >>= timedDeleteAt'
+      (ct, ciCurrentWrapped) <- withStore $ \db -> (,) <$> getContact db vr user chatId <*> getDirectChatItem db user chatId itemId
+      let mDeleteAtCurrent = case ciCurrentWrapped of
+            CChatItem _ ci -> chatItemTimed ci >>= timedDeleteAt'
       if mDeleteAtCurrent == Just deleteAt
         then do
           deletions <- deleteDirectCIs user ct [ciCurrent]
           toView $ CEvtChatItemsDeleted user deletions True True
         else pure ()
     CTGroup -> do
-      (gInfo, ciCurrent) <- withStore $ \db -> (,) <$> getGroupInfo db vr user chatId <*> getGroupChatItem db user chatId itemId
-      let mDeleteAtCurrent = chatItemTimed ciCurrent >>= timedDeleteAt'
+      (gInfo, ciCurrentWrapped) <- withStore $ \db -> (,) <$> getGroupInfo db vr user chatId <*> getGroupChatItem db user chatId itemId
+      let mDeleteAtCurrent = case ciCurrentWrapped of
+            CChatItem _ ci -> chatItemTimed ci >>= timedDeleteAt'
       if mDeleteAtCurrent == Just deleteAt
         then do
           deletedTs <- liftIO getCurrentTime
