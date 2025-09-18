@@ -2070,7 +2070,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                       (Nothing, Just rTTL) -> Just (fromIntegral rTTL)
                       (Nothing, Nothing) -> Nothing
                 -- persist chat-level TTL
-                setDirectChatTTL db ctId negotiatedTTL
+                liftIO $ setDirectChatTTL db ctId negotiatedTTL
                 case negotiatedTTL of
                   Nothing -> do
                     -- disable disappearing for future messages only; do NOT clear timers for messages sent before this change
@@ -2078,8 +2078,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                   Just _ -> do
                     -- For unread timed items, preserve each message's own timed_ttl and schedule deleteAt = now + timed_ttl
                     currentTs <- liftIO getCurrentTime
-                    timedItems <- getDirectUnreadTimedItems db user ctId -- returns [(ChatItemId, Int)] where Int is the per-message ttl
-                    timedDeleteAtList <- setDirectChatItemsDeleteAt db user ctId timedItems currentTs
+                    timedItems <- liftIO $ getDirectUnreadTimedItems db user ctId -- returns [(ChatItemId, Int)] where Int is the per-message ttl
+                    timedDeleteAtList <- liftIO $ setDirectChatItemsDeleteAt db user ctId timedItems currentTs
                     pure (c', timedDeleteAtList)
           when (directOrUsed c' && createItems) $ do
             createProfileUpdatedItem c'
