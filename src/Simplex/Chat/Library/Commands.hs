@@ -1473,12 +1473,12 @@ processChatCommand' vr = \case
       changed <- forM contacts $ \c -> case c of
         Contact {chatItemTTL = Just _} -> pure Nothing
         Contact {chatItemTTL = Nothing, contactId} -> do
-              -- Note: the contact's original remote Profile.defaultTimerTTL is not
-              -- persisted in LocalProfile; therefore we cannot re-check the remote
-              -- default here. Per policy the user-global default is only used for
-              -- initial negotiation, so apply the new local default for contacts
-              -- missing a persisted chat-level TTL.
-              negotiated = Just newTTL
+          -- Note: the contact's original remote Profile.defaultTimerTTL is not
+          -- persisted in LocalProfile; therefore we cannot re-check the remote
+          -- default here. Per policy the user-global default is only used for
+          -- initial negotiation, so apply the new local default for contacts
+          -- missing a persisted chat-level TTL.
+          let negotiated = Just newTTL
           -- persist negotiated chat-level TTL
           setDirectChatTTL db contactId negotiated
           -- retrieve updated contact to reflect the persisted change
