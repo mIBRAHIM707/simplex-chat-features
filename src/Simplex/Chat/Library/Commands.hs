@@ -2886,14 +2886,17 @@ processChatCommand' vr = \case
                 timedItems <- liftIO $ getDirectUnreadTimedItems db user (contactId' ct)
                 liftIO $ setDirectChatItemsDeleteAt db user (contactId' ct) timedItems currentTs
 
-          -- send profile update / feature items if merged profile changed
+          -- send profile update when merged profile changed, but don't create feature items
+          -- for contact preference changes since these are applied, not offered
           incognitoProfile <- forM customUserProfileId $ \profileId -> withStore $ \db -> getProfileById db userId profileId
           let mergedProfile = userProfileToSend user (fromLocalProfile <$> incognitoProfile) (Just ct) False
               mergedProfile' = userProfileToSend user (fromLocalProfile <$> incognitoProfile) (Just ct') False
           when (mergedProfile' /= mergedProfile) $
             withContactLock "updateProfile" (contactId' ct) $ do
               void (sendDirectContactMessage user ct' $ XInfo mergedProfile') `catchChatError` eToView
-              lift . when (directOrUsed ct') $ createSndFeatureItems user ct ct'
+              -- Note: we don't create feature items here because contact preference changes 
+              -- are applied immediately, not offered. The contact will receive the profile update
+              -- and both users will be notified via CRContactPrefsUpdated response.
 
           -- start proximate timed item threads for any rescheduled items
           forM_ timedDeleteAtList $ \(itemId, deleteAt) -> startProximateTimedItemThread user (ChatRef CTDirect (contactId' ct), itemId) deleteAt
