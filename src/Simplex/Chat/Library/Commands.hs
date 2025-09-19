@@ -2867,16 +2867,13 @@ processChatCommand' vr = \case
               -- user's global default
               userDefault = getPreference SCFTimedMessages (fullPreferences user)
               userDefaultTTL = fromIntegral <$> prefParam userDefault
-              -- local candidate: if we don't have a persisted chat TTL use user's global default
-              localCandidateTTL = case oldChatItemTTL of
-                Nothing -> userDefaultTTL
-                Just _ -> contactPrefTTL' <|> (fromIntegral <$> oldChatItemTTL)
-              -- For a locally-initiated preference change, we can only update the local preference
-              -- but should preserve the existing negotiated chat TTL if it exists, since we don't
-              -- know the current remote preference. Only set a new negotiated TTL if there wasn't one before.
-              negotiatedTTL = case oldChatItemTTL of
-                Just existing -> Just (fromIntegral existing) -- preserve existing negotiated TTL
-                Nothing -> localCandidateTTL -- initial negotiation with local preference only
+              -- For contact preference changes, allow the new preference to override negotiated TTL
+              -- This ensures contact-specific changes are applied rather than just offered
+              negotiatedTTL = case contactPrefTTL' of
+                Just newTTL -> Just newTTL  -- Use contact-specific preference if set
+                Nothing -> case oldChatItemTTL of
+                  Just existing -> Just (fromIntegral existing)  -- Keep existing if no contact pref
+                  Nothing -> userDefaultTTL  -- Use user default if nothing exists
 
           timedDeleteAtList <- withStore $ \db -> do
             -- persist negotiated chat-level TTL (convert Int64 properly)

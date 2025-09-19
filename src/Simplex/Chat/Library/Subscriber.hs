@@ -2085,12 +2085,13 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
         Profile {preferences = rcvPrefs_, defaultTimerTTL = rcvDefaultTTL} = p'
         rcvTTL = fromIntegral <$> prefParam (getPreference SCFTimedMessages rcvPrefs_)
         userId = let User {userId = u} = user in u
-        userDefault = getPreference SCFTimedMessages (fullPreferences user)
-        userDefaultTTL = fromIntegral <$> prefParam userDefault
-        -- Compute negotiated TTL based on local and remote preferences
+        -- For initial connections, use user's privacy setting (defaultTimerTTL) instead of fullPreferences
+        User {defaultTimerTTL = userPrivacyTTL} = user
+        userPrivacyTTLInt = if userPrivacyTTL > 0 then Just (fromIntegral userPrivacyTTL) else Nothing
+        -- Compute negotiated TTL based on local and remote privacy settings for initial connection
         contactPrefTTL = fromIntegral <$> (prefParam =<< ctUserTMPref)
         localCandidateTTL = case oldChatItemTTL of
-          Nothing -> userDefaultTTL
+          Nothing -> userPrivacyTTLInt  -- Use privacy setting for initial connection
           Just _ -> contactPrefTTL <|> (fromIntegral <$> oldChatItemTTL)
         negotiatedTTL = case (localCandidateTTL, rcvDefaultTTL) of
           (Just uTTL, Just rTTL) -> Just $ min uTTL (fromIntegral rTTL)
