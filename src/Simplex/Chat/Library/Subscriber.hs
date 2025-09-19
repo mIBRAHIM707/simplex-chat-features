@@ -2048,19 +2048,6 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     processContactProfileUpdate :: Contact -> Profile -> Bool -> CM Contact
     processContactProfileUpdate c@Contact {profile = lp, contactId = ctId, activeConn, chatItemTTL = oldChatItemTTL} p' createItems
       | p /= p' = do
-          -- Compute negotiated TTL before persisting
-          let Contact {chatItemTTL = contactChatTTL} = c
-              contactPrefTTL = fromIntegral <$> (prefParam =<< ctUserTMPref)
-              -- Local candidate TTL: if chatItemTTL is Nothing (initial connection), use user's global default
-              -- otherwise prefer the contact-specific preference (if set) or fall back to existing persisted chat TTL
-              localCandidateTTL = case contactChatTTL of
-                Nothing -> userDefaultTTL
-                Just _ -> contactPrefTTL <|> (fromIntegral <$> contactChatTTL)
-              negotiatedTTL = case (localCandidateTTL, rcvDefaultTTL) of
-                (Just uTTL, Just rTTL) -> Just $ min uTTL (fromIntegral rTTL)
-                (Just uTTL, Nothing) -> Just uTTL
-                (Nothing, Just rTTL) -> Just (fromIntegral rTTL)
-                (Nothing, Nothing) -> Nothing
           -- Persist updated contact preferences and also persist negotiated chat-level TTL
           -- If negotiated TTL changed, clear or reschedule unread timed items accordingly.
           (c', timedDeleteAtList) <- withStore $ \db -> do
@@ -2100,13 +2087,23 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
         userId = let User {userId = u} = user in u
         userDefault = getPreference SCFTimedMessages (fullPreferences user)
         userDefaultTTL = fromIntegral <$> prefParam userDefault
+        -- Compute negotiated TTL based on local and remote preferences
+        contactPrefTTL = fromIntegral <$> (prefParam =<< ctUserTMPref)
+        localCandidateTTL = case oldChatItemTTL of
+          Nothing -> userDefaultTTL
+          Just _ -> contactPrefTTL <|> (fromIntegral <$> oldChatItemTTL)
+        negotiatedTTL = case (localCandidateTTL, rcvDefaultTTL) of
+          (Just uTTL, Just rTTL) -> Just $ min uTTL (fromIntegral rTTL)
+          (Just uTTL, Nothing) -> Just uTTL
+          (Nothing, Just rTTL) -> Just (fromIntegral rTTL)
+          (Nothing, Nothing) -> Nothing
         ctUserPrefs' =
           let
               -- Use the same negotiatedTTL that was computed above for persistence consistency
               ctUserTMPref' = case negotiatedTTL of
                 Just ttlVal -> Just (TimedMessagesPreference {allow = FAYes, ttl = Just (fromIntegral ttlVal)})
                 Nothing -> case ctUserTMPref of
-                  Just userTM -> Just (userTM {ttl = Nothing})
+                  Just userTM -> Just (userTM {ttl = Nothing} :: TimedMessagesPreference)
                   Nothing -> Just (TimedMessagesPreference {allow = FAYes, ttl = Nothing})
            in setPreference_ SCFTimedMessages ctUserTMPref' ctUserPrefs
         createProfileUpdatedItem c' =
