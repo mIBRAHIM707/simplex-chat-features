@@ -2846,7 +2846,42 @@ processChatCommand' vr = \case
       | contactUserPrefs == contactUserPrefs' = pure $ CRContactPrefsUpdated user ct ct
       | otherwise = do
           assertDirectAllowed user MDSnd ct XInfo_
+          -- update stored user preferences for this contact
           ct' <- withStore' $ \db -> updateContactUserPreferences db user ct contactUserPrefs'
+          -- Recompute negotiated chat-level TTL and persist it. This mirrors the logic used when
+          -- an incoming profile (remote) updates their preferences/profile.
+          let Contact {chatItemTTL = oldChatItemTTL} = ct
+              -- contact-specific TTL from our (new) per-contact preference
+              Contact {userPreferences = ctUserPrefs'} = ct'
+              ctUserTMPref' = timedMessages ctUserPrefs'
+              contactPrefTTL' = fromIntegral <$> (prefParam =<< ctUserTMPref')
+              -- remote side candidate: try contact's own preferences (if any) stored in profile
+              rcvPrefTTL = fromIntegral <$> (prefParam =<< (prefParam =<< (timedMessages <$> preferences' ct)))
+              -- user's global default
+              userDefault = getPreference SCFTimedMessages (fullPreferences user)
+              userDefaultTTL = fromIntegral <$> prefParam userDefault
+              -- local candidate: if we don't have a persisted chat TTL use user's global default
+              localCandidateTTL = case oldChatItemTTL of
+                Nothing -> userDefaultTTL
+                Just _ -> contactPrefTTL' <|> (fromIntegral <$> oldChatItemTTL)
+              negotiatedTTL = case (localCandidateTTL, rcvPrefTTL) of
+                (Just uTTL, Just rTTL) -> Just $ min uTTL rTTL
+                (Just uTTL, Nothing) -> Just uTTL
+                (Nothing, Just rTTL) -> Just rTTL
+                (Nothing, Nothing) -> Nothing
+
+          timedDeleteAtList <- withStore $ \db -> do
+            -- persist negotiated chat-level TTL (convert Int64 properly)
+            liftIO $ setDirectChatTTL db (contactId' ct) (fromIntegral <$> negotiatedTTL)
+            case negotiatedTTL of
+              Nothing -> pure []
+              Just _ -> do
+                -- For unread timed items, schedule deletes based on each message's own timed_ttl
+                currentTs <- liftIO getCurrentTime
+                timedItems <- liftIO $ getDirectUnreadTimedItems db user (contactId' ct)
+                liftIO $ setDirectChatItemsDeleteAt db user (contactId' ct) timedItems currentTs
+
+          -- send profile update / feature items if merged profile changed
           incognitoProfile <- forM customUserProfileId $ \profileId -> withStore $ \db -> getProfileById db userId profileId
           let mergedProfile = userProfileToSend user (fromLocalProfile <$> incognitoProfile) (Just ct) False
               mergedProfile' = userProfileToSend user (fromLocalProfile <$> incognitoProfile) (Just ct') False
@@ -2854,6 +2889,11 @@ processChatCommand' vr = \case
             withContactLock "updateProfile" (contactId' ct) $ do
               void (sendDirectContactMessage user ct' $ XInfo mergedProfile') `catchChatError` eToView
               lift . when (directOrUsed ct') $ createSndFeatureItems user ct ct'
+
+          -- start proximate timed item threads for any rescheduled items
+          forM_ timedDeleteAtList $ \(itemId, deleteAt) -> startProximateTimedItemThread user (ChatRef CTDirect (contactId' ct), itemId) deleteAt
+
+          -- if chat-level TTL changed, reflect it in the returned event
           pure $ CRContactPrefsUpdated user ct ct'
     runUpdateGroupProfile :: User -> Group -> GroupProfile -> CM ChatResponse
     runUpdateGroupProfile user (Group g@GroupInfo {businessChat, groupProfile = p@GroupProfile {displayName = n}} ms) p'@GroupProfile {displayName = n'} = do
