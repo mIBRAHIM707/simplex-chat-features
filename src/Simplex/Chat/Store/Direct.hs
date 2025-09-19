@@ -610,7 +610,7 @@ getUserContacts db vr user@User {userId} = do
   pure $ filter (\Contact {activeConn} -> isJust activeConn) contacts
 
 createOrUpdateContactRequest :: DB.Connection -> VersionRangeChat -> User -> Int64 -> InvitationId -> VersionRangeChat -> Profile -> Maybe XContactId -> PQSupport -> ExceptT StoreError IO ChatOrRequest
-createOrUpdateContactRequest db vr user@User {userId, userContactId} userContactLinkId invId (VersionRange minV maxV) Profile {displayName, fullName, image, contactLink, preferences} xContactId_ pqSup =
+createOrUpdateContactRequest db vr user@User {userId, userContactId} userContactLinkId invId (VersionRange minV maxV) Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL = _} xContactId_ pqSup =
   liftIO (maybeM getContactOrGroup xContactId_) >>= \case
     Just cr -> pure cr
     Nothing -> CORRequest <$> createOrUpdate_

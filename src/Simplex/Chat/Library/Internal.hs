@@ -971,7 +971,7 @@ acceptBusinessJoinRequestAsync
     pure gInfo
     where
       businessGroupProfile :: Profile -> GroupPreferences -> GroupProfile
-      businessGroupProfile Profile {displayName, fullName, image} groupPreferences =
+      businessGroupProfile Profile {displayName, fullName, image, defaultTimerTTL = _} groupPreferences =
         GroupProfile {displayName, fullName, description = Nothing, image, groupPreferences = Just groupPreferences, memberAdmission = Nothing}
 
 profileToSendOnAccept :: User -> Maybe IncognitoProfile -> Bool -> Profile

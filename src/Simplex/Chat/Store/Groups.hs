@@ -1094,7 +1094,7 @@ createBusinessRequestGroup
   vr
   gVar
   user@User {userId, userContactId}
-  UserContactRequest {cReqChatVRange, xContactId, profile = Profile {displayName, fullName, image, contactLink, preferences}}
+  UserContactRequest {cReqChatVRange, xContactId, profile = Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL = _}}
   groupPreferences = do
     currentTs <- liftIO getCurrentTime
     (groupId, membership@GroupMember {memberId = userMemberId}) <- insertGroup_ currentTs
@@ -1237,7 +1237,7 @@ createNewGroupMember db user gInfo invitingMember memInfo@MemberInfo {profile} m
   liftIO $ createNewMember_ db user gInfo newMember currentTs
 
 createNewMemberProfile_ :: DB.Connection -> User -> Profile -> UTCTime -> ExceptT StoreError IO (Text, ProfileId)
-createNewMemberProfile_ db User {userId} Profile {displayName, fullName, image, contactLink, preferences} createdAt =
+createNewMemberProfile_ db User {userId} Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL = _} createdAt =
   ExceptT . withLocalDisplayName db userId displayName $ \ldn -> do
     DB.execute
       db

@@ -291,7 +291,7 @@ createConnection_ db userId connType entityId acId connStatus connChatVersion pe
     ent ct = if connType == ct then entityId else Nothing
 
 createIncognitoProfile_ :: DB.Connection -> UserId -> UTCTime -> Profile -> IO Int64
-createIncognitoProfile_ db userId createdAt Profile {displayName, fullName, image} = do
+createIncognitoProfile_ db userId createdAt Profile {displayName, fullName, image, defaultTimerTTL = _} = do
   DB.execute
     db
     [sql|
@@ -385,7 +385,7 @@ createContact db User {userId} profile = do
   void $ createContact_ db userId profile "" Nothing currentTs
 
 createContact_ :: DB.Connection -> UserId -> Profile -> LocalAlias -> Maybe Int64 -> UTCTime -> ExceptT StoreError IO (Text, ContactId, ProfileId)
-createContact_ db userId Profile {displayName, fullName, image, contactLink, preferences} localAlias viaGroup currentTs =
+createContact_ db userId Profile {displayName, fullName, image, contactLink, preferences, defaultTimerTTL = _} localAlias viaGroup currentTs =
   ExceptT . withLocalDisplayName db userId displayName $ \ldn -> do
     DB.execute
       db
