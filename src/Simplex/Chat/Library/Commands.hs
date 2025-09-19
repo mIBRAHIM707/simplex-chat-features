@@ -1490,8 +1490,8 @@ processChatCommand' vr = \case
     forM_ updatedContacts $ \(fromC, toC) -> toView $ CEvtContactUpdated user fromC toC
 
     -- Send profile updates to contacts whose negotiated TTL changed to inform them
-    forM_ updatedContacts $ \(_, toC) -> do
-      case toC.activeConn of
+    forM_ updatedContacts $ \(_, toC@Contact {activeConn = connMaybe}) -> do
+      case connMaybe of
         Just Connection {customUserProfileId} -> do
           incognitoProfile <- forM customUserProfileId $ \profileId -> withStore $ \db -> getProfileById db userId profileId
           let mergedProfile = userProfileToSend user (fromLocalProfile <$> incognitoProfile) (Just toC) False
