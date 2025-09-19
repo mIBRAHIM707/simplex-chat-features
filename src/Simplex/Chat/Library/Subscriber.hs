@@ -2078,14 +2078,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                 timedItems <- liftIO $ getDirectUnreadTimedItems db user ctId -- returns [(ChatItemId, Int)] where Int is the per-message ttl
                 timedDeleteAtList <- liftIO $ setDirectChatItemsDeleteAt db user ctId timedItems currentTs
                 pure (c', timedDeleteAtList)
-          -- If negotiated TTL changed and we have an active connection, send our profile back
-          case activeConn of
-            Just Connection {customUserProfileId} -> when (oldChatItemTTL /= (fromIntegral <$> negotiatedTTL)) $ do
-              incognitoProfile <- forM customUserProfileId $ \profileId -> withStore $ \db -> getProfileById db userId profileId
-              let mergedProfile = userProfileToSend user (fromLocalProfile <$> incognitoProfile) (Just c') False
-              withContactLock "sendProfileUpdate" ctId $ do
-                void (sendDirectContactMessage user c' $ XInfo mergedProfile) `catchChatError` const (pure ())
-            Nothing -> pure ()
+          -- Don't send profile updates when processing incoming XInfo to prevent feedback loops
+          -- Profile updates should only be sent when local user preferences change
           when (directOrUsed c' && createItems) $ do
             createProfileUpdatedItem c'
             lift $ createRcvFeatureItems user c c'
@@ -2108,19 +2102,12 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
         userDefaultTTL = fromIntegral <$> prefParam userDefault
         ctUserPrefs' =
           let
-              -- negotiatedTTL computed above when used in DB block; build new contact timed preference wrapper
-              negotiatedTTL' = case (userDefaultTTL, rcvDefaultTTL) of
-                (Just uTTL, Just rTTL) -> Just $ min uTTL (fromIntegral rTTL)
-                (Just uTTL, Nothing) -> Just uTTL
-                (Nothing, Just rTTL) -> Just (fromIntegral rTTL)
-                (Nothing, Nothing) -> Nothing
-              ctUserTMPref' = case ctUserTMPref of
-                Just userTM -> Just (((userTM :: TimedMessagesPreference) {ttl = negotiatedTTL'}))
-                _
-                  | Just nTTL <- negotiatedTTL', Just uTTL <- userDefaultTTL, nTTL /= uTTL ->
-                      -- userDefault comes from FullPreferences (non-Maybe); update its ttl
-                      Just (((userDefault :: TimedMessagesPreference) {ttl = negotiatedTTL'}))
-                  | otherwise -> Just (TimedMessagesPreference {allow = FAYes, ttl = Nothing})
+              -- Use the same negotiatedTTL that was computed above for persistence consistency
+              ctUserTMPref' = case negotiatedTTL of
+                Just ttlVal -> Just (TimedMessagesPreference {allow = FAYes, ttl = Just (fromIntegral ttlVal)})
+                Nothing -> case ctUserTMPref of
+                  Just userTM -> Just (userTM {ttl = Nothing})
+                  Nothing -> Just (TimedMessagesPreference {allow = FAYes, ttl = Nothing})
            in setPreference_ SCFTimedMessages ctUserTMPref' ctUserPrefs
         createProfileUpdatedItem c' =
           when visibleProfileUpdated $ do

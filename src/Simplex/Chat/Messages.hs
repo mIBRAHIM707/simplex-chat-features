@@ -458,7 +458,12 @@ rcvGroupCITimed :: GroupInfo -> Maybe Int -> Maybe CITimed
 rcvGroupCITimed = rcvCITimed_ . groupTimedTTL
 
 rcvCITimed_ :: Maybe (Maybe Int) -> Maybe Int -> Maybe CITimed
-rcvCITimed_ chatTTL itemTTL = (`CITimed` Nothing) <$> (chatTTL >> itemTTL)
+rcvCITimed_ chatTTL itemTTL = 
+  case itemTTL of
+    Just ttl -> Just (CITimed ttl Nothing)  -- per-message TTL takes precedence
+    Nothing -> case chatTTL of
+      Just (Just ttl) -> Just (CITimed ttl Nothing)  -- chat-level TTL
+      _ -> Nothing  -- no TTL (either disabled or enabled without default)
 
 data CIQuote (c :: ChatType) = CIQuote
   { chatDir :: CIQDirection c,

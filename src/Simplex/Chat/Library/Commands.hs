@@ -1489,6 +1489,16 @@ processChatCommand' vr = \case
     -- emit view events for updated contacts so UI/in-memory controllers refresh
     forM_ updatedContacts $ \(fromC, toC) -> toView $ CEvtContactUpdated user fromC toC
 
+    -- Send profile updates to contacts whose negotiated TTL changed to inform them
+    forM_ updatedContacts $ \(_, toC) -> do
+      case activeConn toC of
+        Just Connection {customUserProfileId} -> do
+          incognitoProfile <- forM customUserProfileId $ \profileId -> withStore $ \db -> getProfileById db userId profileId
+          let mergedProfile = userProfileToSend user (fromLocalProfile <$> incognitoProfile) (Just toC) False
+          withContactLock "sendProfileUpdateAfterTTLChange" (contactId' toC) $ do
+            void (sendDirectContactMessage user toC $ XInfo mergedProfile) `catchChatError` const (pure ())
+        Nothing -> pure ()
+
     ok user
   SetUserDefaultTimerTTL newTTL -> withUser' $ \User {userId} -> do
     -- Validate TTL locally before dispatching the API command
@@ -2861,9 +2871,12 @@ processChatCommand' vr = \case
               localCandidateTTL = case oldChatItemTTL of
                 Nothing -> userDefaultTTL
                 Just _ -> contactPrefTTL' <|> (fromIntegral <$> oldChatItemTTL)
-              -- For a locally-initiated preference change we don't have an incoming remote profile
-              -- to consult, so negotiated TTL uses the local candidate only.
-              negotiatedTTL = localCandidateTTL
+              -- For a locally-initiated preference change, we can only update the local preference
+              -- but should preserve the existing negotiated chat TTL if it exists, since we don't
+              -- know the current remote preference. Only set a new negotiated TTL if there wasn't one before.
+              negotiatedTTL = case oldChatItemTTL of
+                Just existing -> Just (fromIntegral existing) -- preserve existing negotiated TTL
+                Nothing -> localCandidateTTL -- initial negotiation with local preference only
 
           timedDeleteAtList <- withStore $ \db -> do
             -- persist negotiated chat-level TTL (convert Int64 properly)
