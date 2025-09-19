@@ -95,6 +95,7 @@ chatProfileTests = do
     xit'' "enable timed messages with contact" testEnableTimedMessagesContact
     it "enable timed messages in group" testEnableTimedMessagesGroup
     xit'' "timed messages enabled globally, contact turns on" testTimedMessagesEnabledGlobally
+    it "contact TTL negotiation updates when preferences change" testContactTTLNegotiationUpdate
     it "update multiple user preferences for multiple contacts" testUpdateMultipleUserPrefs
     describe "group preferences for specific member role" $ do
       it "direct messages" testGroupPrefsDirectForRole
@@ -2373,6 +2374,57 @@ testTimedMessagesEnabledGlobally =
       bob <## "timed message deleted: hey"
       alice #$> ("/_get chat @2 count=100", chat, chatFeatures <> [(0, "Disappearing messages: enabled (1 sec)")])
       bob #$> ("/_get chat @2 count=100", chat, chatFeatures <> [(1, "Disappearing messages: enabled (1 sec)")])
+
+testContactTTLNegotiationUpdate :: HasCallStack => TestParams -> IO ()
+testContactTTLNegotiationUpdate =
+  testChat2 aliceProfile bobProfile $
+    \alice bob -> do
+      connectUsers alice bob
+      
+      -- Initial setup: Alice sets TTL to 5 seconds
+      alice ##> "/_set prefs @2 {\"timedMessages\": {\"allow\": \"yes\", \"ttl\": 5}}"
+      alice <## "you updated preferences for bob:"
+      alice <## "Disappearing messages: enabled (you allow: yes (5 sec), contact allows: yes)"
+      bob <## "alice updated preferences for you:"
+      bob <## "Disappearing messages: enabled (you allow: yes (5 sec), contact allows: yes (5 sec))"
+      
+      -- Send a message to verify TTL is 5 seconds
+      alice #> "@bob test message 1"
+      bob <# "alice> test message 1"
+      
+      -- Check that the feature shows 5 seconds
+      alice #$> ("/_get chat @2 count=100", chat, chatFeatures <> [(1, "Disappearing messages: enabled (5 sec)"), (1, "test message 1")])
+      bob #$> ("/_get chat @2 count=100", chat, chatFeatures <> [(0, "Disappearing messages: enabled (5 sec)"), (0, "test message 1")])
+      
+      -- Now Alice changes her TTL to 10 seconds - this should trigger negotiation update
+      alice ##> "/_set prefs @2 {\"timedMessages\": {\"allow\": \"yes\", \"ttl\": 10}}"
+      alice <## "you updated preferences for bob:"
+      alice <## "Disappearing messages: enabled (you allow: yes (10 sec), contact allows: yes (5 sec))"
+      bob <## "alice updated preferences for you:"
+      bob <## "Disappearing messages: enabled (you allow: yes (10 sec), contact allows: yes (10 sec))"
+      
+      -- Send another message to verify TTL is now 10 seconds (negotiated)
+      alice #> "@bob test message 2"
+      bob <# "alice> test message 2"
+      
+      -- Check that the feature shows 10 seconds (negotiated value)
+      alice #$> ("/_get chat @2 count=100", chat, chatFeatures <> [(1, "Disappearing messages: enabled (10 sec)"), (1, "test message 1"), (1, "test message 2")])
+      bob #$> ("/_get chat @2 count=100", chat, chatFeatures <> [(0, "Disappearing messages: enabled (10 sec)"), (0, "test message 1"), (0, "test message 2")])
+      
+      -- Now Bob changes his TTL to 3 seconds - this should trigger negotiation to 3 seconds
+      bob ##> "/_set prefs @2 {\"timedMessages\": {\"allow\": \"yes\", \"ttl\": 3}}"
+      bob <## "you updated preferences for alice:"
+      bob <## "Disappearing messages: enabled (you allow: yes (3 sec), contact allows: yes (10 sec))"
+      alice <## "bob updated preferences for you:"
+      alice <## "Disappearing messages: enabled (you allow: yes (3 sec), contact allows: yes (3 sec))"
+      
+      -- Send another message to verify TTL is now 3 seconds (negotiated)
+      alice #> "@bob test message 3"
+      bob <# "alice> test message 3"
+      
+      -- Check that the feature shows 3 seconds (negotiated value)
+      alice #$> ("/_get chat @2 count=100", chat, chatFeatures <> [(1, "Disappearing messages: enabled (3 sec)"), (1, "test message 1"), (1, "test message 2"), (1, "test message 3")])
+      bob #$> ("/_get chat @2 count=100", chat, chatFeatures <> [(0, "Disappearing messages: enabled (3 sec)"), (0, "test message 1"), (0, "test message 2"), (0, "test message 3")])
 
 testUpdateMultipleUserPrefs :: HasCallStack => TestParams -> IO ()
 testUpdateMultipleUserPrefs = testChat3 aliceProfile bobProfile cathProfile $

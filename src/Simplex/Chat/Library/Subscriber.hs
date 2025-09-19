@@ -2046,26 +2046,26 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
         brokerTs = metaBrokerTs msgMeta
 
     processContactProfileUpdate :: Contact -> Profile -> Bool -> CM Contact
-    processContactProfileUpdate c@Contact {profile = lp, contactId = ctId} p' createItems
+    processContactProfileUpdate c@Contact {profile = lp, contactId = ctId, activeConn, chatItemTTL = oldChatItemTTL} p' createItems
       | p /= p' = do
+          -- Compute negotiated TTL before persisting
+          let Contact {chatItemTTL = contactChatTTL} = c
+              contactPrefTTL = fromIntegral <$> (prefParam =<< ctUserTMPref)
+              -- Local candidate TTL: if chatItemTTL is Nothing (initial connection), use user's global default
+              -- otherwise prefer the contact-specific preference (if set) or fall back to existing persisted chat TTL
+              localCandidateTTL = case contactChatTTL of
+                Nothing -> userDefaultTTL
+                Just _ -> contactPrefTTL <|> (fromIntegral <$> contactChatTTL)
+              negotiatedTTL = case (localCandidateTTL, rcvDefaultTTL) of
+                (Just uTTL, Just rTTL) -> Just $ min uTTL (fromIntegral rTTL)
+                (Just uTTL, Nothing) -> Just uTTL
+                (Nothing, Just rTTL) -> Just (fromIntegral rTTL)
+                (Nothing, Nothing) -> Nothing
           -- Persist updated contact preferences and also persist negotiated chat-level TTL
           -- If negotiated TTL changed, clear or reschedule unread timed items accordingly.
           (c', timedDeleteAtList) <- withStore $ \db -> do
             -- update stored user preferences for contact
             c' <- liftIO $ updateContactUserPreferences db user c ctUserPrefs'
-            -- compute negotiated TTL (Maybe Int64)
-            let Contact {chatItemTTL = contactChatTTL} = c
-                contactPrefTTL = fromIntegral <$> (prefParam =<< ctUserTMPref)
-                -- Local candidate TTL: if chatItemTTL is Nothing (initial connection), use user's global default
-                -- otherwise prefer the contact-specific preference (if set) or fall back to existing persisted chat TTL
-                localCandidateTTL = case contactChatTTL of
-                  Nothing -> userDefaultTTL
-                  Just _ -> contactPrefTTL <|> (fromIntegral <$> contactChatTTL)
-                negotiatedTTL = case (localCandidateTTL, rcvDefaultTTL) of
-                  (Just uTTL, Just rTTL) -> Just $ min uTTL (fromIntegral rTTL)
-                  (Just uTTL, Nothing) -> Just uTTL
-                  (Nothing, Just rTTL) -> Just (fromIntegral rTTL)
-                  (Nothing, Nothing) -> Nothing
             -- persist chat-level TTL (ensure Int -> Int64 conversion)
             liftIO $ setDirectChatTTL db ctId (fromIntegral <$> negotiatedTTL)
             case negotiatedTTL of
@@ -2078,6 +2078,14 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                 timedItems <- liftIO $ getDirectUnreadTimedItems db user ctId -- returns [(ChatItemId, Int)] where Int is the per-message ttl
                 timedDeleteAtList <- liftIO $ setDirectChatItemsDeleteAt db user ctId timedItems currentTs
                 pure (c', timedDeleteAtList)
+          -- If negotiated TTL changed and we have an active connection, send our profile back
+          case activeConn of
+            Just Connection {customUserProfileId} -> when (oldChatItemTTL /= (fromIntegral <$> negotiatedTTL)) $ do
+              incognitoProfile <- forM customUserProfileId $ \profileId -> withStore $ \db -> getProfileById db userId profileId
+              let mergedProfile = userProfileToSend user (fromLocalProfile <$> incognitoProfile) (Just c') False
+              withContactLock "sendProfileUpdate" ctId $ do
+                void (sendDirectContactMessage user c' $ XInfo mergedProfile) `catchChatError` const (pure ())
+            Nothing -> pure ()
           when (directOrUsed c' && createItems) $ do
             createProfileUpdatedItem c'
             lift $ createRcvFeatureItems user c c'
@@ -2095,6 +2103,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
         userTTL_ = Just $ let User {defaultTimerTTL = ttl} = user in ttl  -- Get from user object
         Profile {preferences = rcvPrefs_, defaultTimerTTL = rcvDefaultTTL} = p'
         rcvTTL = fromIntegral <$> prefParam (getPreference SCFTimedMessages rcvPrefs_)
+        userId = let User {userId = u} = user in u
         userDefault = getPreference SCFTimedMessages (fullPreferences user)
         userDefaultTTL = fromIntegral <$> prefParam userDefault
         ctUserPrefs' =
@@ -2192,9 +2201,9 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
             createInternalChatItem user (CDGroupRcv gInfo m') ciContent itemTs_
 
     createFeatureEnabledItems :: Contact -> CM ()
-    createFeatureEnabledItems ct@Contact {mergedPreferences} =
+    createFeatureEnabledItems ct@Contact {mergedPreferences, chatItemTTL} =
       forM_ allChatFeatures $ \(ACF f) -> do
-        let state = featureState $ getContactUserPreference f mergedPreferences
+        let state = featureState (getContactUserPreference f mergedPreferences) chatItemTTL
         createInternalChatItem user (CDDirectRcv ct) (uncurry (CIRcvChatFeature $ chatFeature f) state) Nothing
 
     xInfoProbe :: ContactOrMember -> Probe -> CM ()

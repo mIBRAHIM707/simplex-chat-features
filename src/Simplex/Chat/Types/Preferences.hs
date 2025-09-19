@@ -858,9 +858,11 @@ preferenceText p =
       paramText = if allowed == FAAlways || allowed == FAYes then paramText_ feature (prefParam p) else ""
    in safeDecodeUtf8 (strEncode allowed) <> paramText
 
-featureState :: FeatureI f => ContactUserPreference (FeaturePreference f) -> (PrefEnabled, Maybe Int)
-featureState ContactUserPreference {enabled, userPreference} =
-  let param = if forUser enabled then prefParam $ preference userPreference else Nothing
+featureState :: FeatureI f => ContactUserPreference (FeaturePreference f) -> Maybe Int64 -> (PrefEnabled, Maybe Int)
+featureState ContactUserPreference {enabled, userPreference} chatItemTTL =
+  let param = case chatFeature $ sFeature @f of
+        CFTimedMessages -> fromIntegral <$> chatItemTTL <|> if forUser enabled then prefParam $ preference userPreference else Nothing
+        _ -> if forUser enabled then prefParam $ preference userPreference else Nothing
    in (enabled, param)
 
 preferenceState :: FeatureI f => FeaturePreference f -> (FeatureAllowed, Maybe Int)

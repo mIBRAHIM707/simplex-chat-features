@@ -2116,7 +2116,7 @@ createContactsFeatureItems user cts chatDir ciFeature ciOffer getPref = do
   toView' $ CEvtNewChatItems user acis
   where
     contactChangedFeatures :: (Contact, Contact) -> (ChatDirection 'CTDirect d, [CIContent d])
-    contactChangedFeatures (Contact {mergedPreferences = cups}, ct'@Contact {mergedPreferences = cups'}) = do
+    contactChangedFeatures (Contact {mergedPreferences = cups}, ct'@Contact {mergedPreferences = cups', chatItemTTL}) = do
       let contents = mapMaybe (\(ACF f) -> featureCIContent_ f) allChatFeatures
       (chatDir ct', contents)
       where
@@ -2129,8 +2129,8 @@ createContactsFeatureItems user cts chatDir ciFeature ciOffer getPref = do
             fContent :: FeatureContent a d -> (a, Maybe Int) -> CIContent d
             fContent ci (s, param) = ci f' s param
             f' = chatFeature f
-            state = featureState cup
-            state' = featureState cup'
+            state = featureState cup chatItemTTL
+            state' = featureState cup' chatItemTTL
             prefState = preferenceState $ getPref cup
             prefState' = preferenceState $ getPref cup'
             cup = getContactUserPreference f cups
