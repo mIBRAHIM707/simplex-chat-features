@@ -2956,6 +2956,13 @@ object ChatController {
             chatModel.chatsContext.updateContact(rhId, r.contact)
           }
         }
+      is CR.ContactPrefsUpdated -> {
+        if (active(r.user) && r.toContact.directOrUsed) {
+          withContext(Dispatchers.Main) {
+            chatModel.chatsContext.updateContact(rhId, r.toContact)
+          }
+        }
+      }
       else ->
         Log.d(TAG , "unsupported event: ${msg.responseType}")
     }

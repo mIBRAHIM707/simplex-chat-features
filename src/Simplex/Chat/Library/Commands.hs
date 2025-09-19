@@ -2858,26 +2858,23 @@ processChatCommand' vr = \case
           assertDirectAllowed user MDSnd ct XInfo_
           -- update stored user preferences for this contact
           ct' <- withStore' $ \db -> updateContactUserPreferences db user ct contactUserPrefs'
-          -- Recompute negotiated chat-level TTL and persist it. This mirrors the logic used when
-          -- an incoming profile (remote) updates their preferences/profile.
+          -- For contact preference changes, do NOT change the chat-level TTL.
+          -- Chat-level TTL should only be changed when both users negotiate a new shared TTL,
+          -- not when one user changes their per-contact preferences.
+          -- Contact preferences control what TTL the user wants to send with their messages,
+          -- but chat-level TTL controls local device message deletion and should remain stable.
           let Contact {chatItemTTL = oldChatItemTTL} = ct
-              -- contact-specific TTL from our (new) per-contact preference
-              Contact {userPreferences = ctUserPrefs'@Preferences {timedMessages = ctUserTMPref'}} = ct'
-              contactPrefTTL' = fromIntegral <$> (prefParam =<< ctUserTMPref')
-              -- user's global default
-              userDefault = getPreference SCFTimedMessages (fullPreferences user)
-              userDefaultTTL = fromIntegral <$> prefParam userDefault
-              -- For contact preference changes, allow the new preference to override negotiated TTL
-              -- This ensures contact-specific changes are applied rather than just offered
-              negotiatedTTL = case contactPrefTTL' of
-                Just newTTL -> Just newTTL  -- Use contact-specific preference if set
-                Nothing -> case oldChatItemTTL of
-                  Just existing -> Just (fromIntegral existing)  -- Keep existing if no contact pref
-                  Nothing -> userDefaultTTL  -- Use user default if nothing exists
+              -- Keep existing chat-level TTL unchanged for contact preference changes
+              negotiatedTTL = case oldChatItemTTL of
+                Just existing -> Just (fromIntegral existing)  -- Keep existing chat-level TTL
+                Nothing -> Nothing  -- Don't set chat-level TTL for contact pref changes
 
           timedDeleteAtList <- withStore $ \db -> do
-            -- persist negotiated chat-level TTL (convert Int64 properly)
-            liftIO $ setDirectChatTTL db (contactId' ct) (fromIntegral <$> negotiatedTTL)
+            -- For contact preference changes, we don't change the chat-level TTL.
+            -- Only persist TTL changes that result from mutual negotiation between users.
+            case negotiatedTTL of
+              Just ttlVal -> liftIO $ setDirectChatTTL db (contactId' ct) (Just $ fromIntegral ttlVal)
+              Nothing -> pure ()  -- Don't change existing chat-level TTL for contact pref changes
             case negotiatedTTL of
               Nothing -> pure []
               Just _ -> do
