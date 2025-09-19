@@ -861,8 +861,8 @@ preferenceText p =
 
 featureState :: FeatureI f => SChatFeature f -> ContactUserPreference (FeaturePreference f) -> Maybe Int64 -> (PrefEnabled, Maybe Int)
 featureState f ContactUserPreference {enabled, userPreference} chatItemTTL =
-  let param = case chatFeature f of
-        CFTimedMessages -> fromIntegral <$> chatItemTTL <|> if forUser enabled then prefParam $ preference userPreference else Nothing
+  let param = case f of
+        SCFTimedMessages -> fromIntegral <$> chatItemTTL <|> if forUser enabled then prefParam $ preference userPreference else Nothing
         _ -> if forUser enabled then prefParam $ preference userPreference else Nothing
    in (enabled, param)
 
