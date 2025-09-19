@@ -26,6 +26,7 @@ import Data.Aeson (FromJSON (..), ToJSON (..))
 import qualified Data.Aeson.TH as J
 import qualified Data.Attoparsec.ByteString.Char8 as A
 import qualified Data.ByteString.Char8 as B
+import Data.Int (Int64)
 import Data.Maybe (fromMaybe, isJust)
 import Data.Text (Text)
 import qualified Data.Text as T
@@ -858,9 +859,9 @@ preferenceText p =
       paramText = if allowed == FAAlways || allowed == FAYes then paramText_ feature (prefParam p) else ""
    in safeDecodeUtf8 (strEncode allowed) <> paramText
 
-featureState :: FeatureI f => ContactUserPreference (FeaturePreference f) -> Maybe Int64 -> (PrefEnabled, Maybe Int)
-featureState ContactUserPreference {enabled, userPreference} chatItemTTL =
-  let param = case chatFeature $ sFeature @f of
+featureState :: FeatureI f => SChatFeature f -> ContactUserPreference (FeaturePreference f) -> Maybe Int64 -> (PrefEnabled, Maybe Int)
+featureState f ContactUserPreference {enabled, userPreference} chatItemTTL =
+  let param = case chatFeature f of
         CFTimedMessages -> fromIntegral <$> chatItemTTL <|> if forUser enabled then prefParam $ preference userPreference else Nothing
         _ -> if forUser enabled then prefParam $ preference userPreference else Nothing
    in (enabled, param)

@@ -2129,8 +2129,8 @@ createContactsFeatureItems user cts chatDir ciFeature ciOffer getPref = do
             fContent :: FeatureContent a d -> (a, Maybe Int) -> CIContent d
             fContent ci (s, param) = ci f' s param
             f' = chatFeature f
-            state = featureState cup chatItemTTL
-            state' = featureState cup' chatItemTTL
+            state = featureState f cup chatItemTTL
+            state' = featureState f cup' chatItemTTL
             prefState = preferenceState $ getPref cup
             prefState' = preferenceState $ getPref cup'
             cup = getContactUserPreference f cups

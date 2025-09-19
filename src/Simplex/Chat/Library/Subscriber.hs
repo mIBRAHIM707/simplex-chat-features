@@ -2203,7 +2203,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     createFeatureEnabledItems :: Contact -> CM ()
     createFeatureEnabledItems ct@Contact {mergedPreferences, chatItemTTL} =
       forM_ allChatFeatures $ \(ACF f) -> do
-        let state = featureState (getContactUserPreference f mergedPreferences) chatItemTTL
+        let state = featureState f (getContactUserPreference f mergedPreferences) chatItemTTL
         createInternalChatItem user (CDDirectRcv ct) (uncurry (CIRcvChatFeature $ chatFeature f) state) Nothing
 
     xInfoProbe :: ContactOrMember -> Probe -> CM ()
