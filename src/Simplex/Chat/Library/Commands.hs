@@ -2852,11 +2852,8 @@ processChatCommand' vr = \case
           -- an incoming profile (remote) updates their preferences/profile.
           let Contact {chatItemTTL = oldChatItemTTL} = ct
               -- contact-specific TTL from our (new) per-contact preference
-              Contact {userPreferences = ctUserPrefs'} = ct'
-              ctUserTMPref' = timedMessages ctUserPrefs'
+              Contact {userPreferences = ctUserPrefs'@Preferences {timedMessages = ctUserTMPref'}} = ct'
               contactPrefTTL' = fromIntegral <$> (prefParam =<< ctUserTMPref')
-              -- remote side candidate: try contact's own preferences (if any) stored in profile
-              rcvPrefTTL = fromIntegral <$> (prefParam =<< (prefParam =<< (timedMessages <$> preferences' ct)))
               -- user's global default
               userDefault = getPreference SCFTimedMessages (fullPreferences user)
               userDefaultTTL = fromIntegral <$> prefParam userDefault
@@ -2864,11 +2861,9 @@ processChatCommand' vr = \case
               localCandidateTTL = case oldChatItemTTL of
                 Nothing -> userDefaultTTL
                 Just _ -> contactPrefTTL' <|> (fromIntegral <$> oldChatItemTTL)
-              negotiatedTTL = case (localCandidateTTL, rcvPrefTTL) of
-                (Just uTTL, Just rTTL) -> Just $ min uTTL rTTL
-                (Just uTTL, Nothing) -> Just uTTL
-                (Nothing, Just rTTL) -> Just rTTL
-                (Nothing, Nothing) -> Nothing
+              -- For a locally-initiated preference change we don't have an incoming remote profile
+              -- to consult, so negotiated TTL uses the local candidate only.
+              negotiatedTTL = localCandidateTTL
 
           timedDeleteAtList <- withStore $ \db -> do
             -- persist negotiated chat-level TTL (convert Int64 properly)
