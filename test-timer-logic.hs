@@ -7,15 +7,15 @@
 module TestTimerLogic where
 
 -- Mock the essential types we need
-data User = User { defaultTimerTTL :: Int } deriving (Show, Eq)
+data User = User { userDefaultTimerTTL :: Int } deriving (Show, Eq)
 data Contact = Contact { chatItemTTL :: Maybe Int } deriving (Show, Eq)  
-data Profile = Profile { defaultTimerTTL :: Maybe Int } deriving (Show, Eq)
+data Profile = Profile { profileDefaultTimerTTL :: Maybe Int } deriving (Show, Eq)
 
 -- Test the negotiation logic from Direct.hs
 testNegotiateTimer :: User -> Profile -> Maybe Int
 testNegotiateTimer user profile = 
-  let userDefaultTTL = defaultTimerTTL user
-      contactDefaultTTL = defaultTimerTTL profile
+  let userDefaultTTL = userDefaultTimerTTL user
+      contactDefaultTTL = profileDefaultTimerTTL profile
   in case (userDefaultTTL, contactDefaultTTL) of
        (uTTL, Just cTTL) -> Just $ min uTTL cTTL
        (uTTL, Nothing) -> Just uTTL
