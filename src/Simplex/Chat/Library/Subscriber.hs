@@ -2049,15 +2049,15 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     processContactProfileUpdate c@Contact {profile = lp, contactId = ctId, activeConn, chatItemTTL = oldChatItemTTL} p' createItems
       | p /= p' = do
           -- Check if this is initial connection (no chatItemTTL) and timer negotiation is needed
-          let needsTimerNegotiation = isNothing oldChatItemTTL && isJust (defaultTimerTTL p')
+          let Profile {defaultTimerTTL = contactDefaultTimerTTL, preferences = contactPreferences} = p'
+              needsTimerNegotiation = isNothing oldChatItemTTL && isJust contactDefaultTimerTTL
               User {userId, defaultTimerTTL = userDefaultTTL} = user
           
           (c', timedDeleteAtList, profileUpdateNeeded) <- withStore $ \db -> do
             if needsTimerNegotiation
               then do
                 -- Perform timer negotiation for initial connection using createDirectContact logic
-                let contactDefaultTTL = defaultTimerTTL (p' :: Profile)
-                    negotiatedTTL = case (userDefaultTTL, contactDefaultTTL) of
+                let negotiatedTTL = case (userDefaultTTL, contactDefaultTimerTTL) of
                       (uTTL, Just cTTL) -> Just $ min uTTL cTTL
                       (uTTL, Nothing) -> Just uTTL
                 
@@ -2082,7 +2082,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                       (ttlInt64, encodeJSON newUserPrefs, userId, ctId)
                     
                     -- Update the contact with negotiated timer and enabled preferences
-                    let mergedPreferences = contactUserPreferences user newUserPrefs (preferences (p' :: Profile)) $ contactConnIncognito c'
+                    let mergedPreferences = contactUserPreferences user newUserPrefs contactPreferences $ contactConnIncognito c'
                         c'' = c' { chatItemTTL = Just ttlInt64, userPreferences = newUserPrefs, mergedPreferences }
                     pure (c'', [], True)  -- Signal that profile update is needed
               else do
