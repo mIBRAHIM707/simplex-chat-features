@@ -2048,19 +2048,64 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     processContactProfileUpdate :: Contact -> Profile -> Bool -> CM Contact
     processContactProfileUpdate c@Contact {profile = lp, contactId = ctId, activeConn, chatItemTTL = oldChatItemTTL} p' createItems
       | p /= p' = do
-          -- For profile updates, preserve the existing chatItemTTL (conversation timer) that was negotiated during initial connection.
-          -- Only update user preferences without changing the conversation timer unless this is the initial connection.
-          (c', timedDeleteAtList) <- withStore $ \db -> do
-            -- Update contact profile but preserve existing chatItemTTL (conversation timer)
-            c' <- updateContactProfile db user c p' 
-            -- Only reschedule timers if there's an existing chatItemTTL and timed messages are enabled
-            case oldChatItemTTL of
-              Nothing -> pure (c', [])
-              Just _ -> do
-                currentTs <- liftIO getCurrentTime
-                timedItems <- liftIO $ getDirectUnreadTimedItems db user ctId
-                timedDeleteAtList <- liftIO $ setDirectChatItemsDeleteAt db user ctId timedItems currentTs
-                pure (c', timedDeleteAtList)
+          -- Check if this is initial connection (no chatItemTTL) and timer negotiation is needed
+          let needsTimerNegotiation = isNothing oldChatItemTTL && isJust (defaultTimerTTL p')
+              User {userId, defaultTimerTTL = userDefaultTTL} = user
+          
+          (c', timedDeleteAtList, profileUpdateNeeded) <- withStore $ \db -> do
+            if needsTimerNegotiation
+              then do
+                -- Perform timer negotiation for initial connection using createDirectContact logic
+                let contactDefaultTTL = defaultTimerTTL p'
+                    negotiatedTTL = case (userDefaultTTL, contactDefaultTTL) of
+                      (uTTL, Just cTTL) -> Just $ min uTTL cTTL
+                      (uTTL, Nothing) -> Just uTTL
+                
+                -- Update contact profile first
+                c' <- updateContactProfile db user c p'
+                
+                -- Set the negotiated timer as chatItemTTL and update userPreferences
+                case negotiatedTTL of
+                  Nothing -> pure (c', [], False)
+                  Just ttl -> do
+                    let ttlInt64 = fromIntegral ttl
+                        -- Set timer preference to enabled for negotiated timer 
+                        newUserPrefs = Preferences {
+                          timedMessages = Just $ TimedMessagesPreference FAYes (Just ttlInt64),
+                          fullDelete = Nothing,
+                          reactions = Nothing,
+                          voice = Nothing,
+                          calls = Nothing
+                        }
+                    liftIO $ DB.execute db 
+                      "UPDATE contacts SET chat_item_ttl = ?, user_preferences = ? WHERE user_id = ? AND contact_id = ?" 
+                      (ttlInt64, encodeJSON newUserPrefs, userId, ctId)
+                    
+                    -- Update the contact with negotiated timer and enabled preferences
+                    let mergedPreferences = contactUserPreferences user newUserPrefs (preferences p') $ contactConnIncognito c'
+                        c'' = c' { chatItemTTL = Just ttlInt64, userPreferences = newUserPrefs, mergedPreferences }
+                    pure (c'', [], True)  -- Signal that profile update is needed
+              else do
+                -- Standard profile update - preserve existing chatItemTTL
+                c' <- updateContactProfile db user c p' 
+                case oldChatItemTTL of
+                  Nothing -> pure (c', [], False)
+                  Just _ -> do
+                    currentTs <- liftIO getCurrentTime
+                    timedItems <- liftIO $ getDirectUnreadTimedItems db user ctId
+                    timedDeleteAtList <- liftIO $ setDirectChatItemsDeleteAt db user ctId timedItems currentTs
+                    pure (c', timedDeleteAtList, False)
+          
+          -- Send profile update to inform other user that timer feature is enabled
+          when (profileUpdateNeeded && directOrUsed c') $ do
+            case activeConn of
+              Just Connection {customUserProfileId} -> do
+                incognitoProfile <- forM customUserProfileId $ \profileId -> withStore $ \db -> getProfileById db userId profileId
+                let mergedProfile = userProfileToSend user (fromLocalProfile <$> incognitoProfile) (Just c') False
+                withContactLock "timerNegotiation" ctId $ do
+                  void (sendDirectContactMessage user c' $ XInfo mergedProfile) `catchChatError` const (pure ())
+              _ -> pure ()
+          
           -- Don't send profile updates when processing incoming XInfo to prevent feedback loops
           -- Profile updates should only be sent when local user preferences change
           when (directOrUsed c' && createItems) $ do
