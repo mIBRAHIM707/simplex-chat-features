@@ -2071,7 +2071,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                     let ttlInt64 = fromIntegral ttl
                         -- Set timer preference to enabled for negotiated timer 
                         newUserPrefs = Preferences {
-                          timedMessages = Just $ TimedMessagesPreference FAYes (Just ttlInt64),
+                          timedMessages = Just $ TimedMessagesPreference FAYes (Just ttl),
                           fullDelete = Nothing,
                           reactions = Nothing,
                           voice = Nothing,
