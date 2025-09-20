@@ -257,6 +257,10 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
         Just ttl -> setPreference_ SCFTimedMessages (Just $ TimedMessagesPreference {allow = FAYes, ttl = Just (fromIntegral ttl)}) emptyChatPrefs
         Nothing -> emptyChatPrefs
       mergedPreferences = contactUserPreferences user userPreferences profilePreferences $ connIncognito conn
+  -- Persist the negotiated timer as chatItemTTL so it's automatically applied to messages
+  liftIO $ case negotiatedTTL of
+    Just ttl -> DB.execute db "UPDATE contacts SET chat_item_ttl = ?, updated_at = ? WHERE contact_id = ?" (fromIntegral ttl :: Int64, currentTs, contactId)
+    Nothing -> pure ()
   pure $
     Contact
       { contactId,
@@ -275,8 +279,8 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
         contactGroupMemberId = Nothing,
         contactGrpInvSent = False,
         chatTags = [],
-        -- Leave chatItemTTL unset so local deletion uses the global TTL, not the negotiated per-contact default.
-        chatItemTTL = Nothing,
+        -- Set chatItemTTL to the negotiated timer so messages automatically use it
+        chatItemTTL = fromIntegral <$> negotiatedTTL,
         uiThemes = Nothing,
         chatDeleted = False,
         customData = Nothing
