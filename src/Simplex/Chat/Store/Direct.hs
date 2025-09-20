@@ -262,7 +262,11 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
       userPreferences = case negotiatedTTL of
         Just ttl -> setPreference_ SCFTimedMessages (Just $ TimedMessagesPreference {allow = FAYes, ttl = Just (fromIntegral ttl)}) emptyChatPrefs
         Nothing -> emptyChatPrefs
-      mergedPreferences = contactUserPreferences user userPreferences profilePreferences $ connIncognito conn
+      -- Force contact profile preferences to have timed messages enabled when we have a negotiated timer
+      profilePreferences' = case negotiatedTTL of
+        Just _ -> Just $ setPreference_ SCFTimedMessages (Just $ TimedMessagesPreference {allow = FAYes, ttl = Nothing}) (fromMaybe emptyChatPrefs profilePreferences)
+        Nothing -> profilePreferences
+      mergedPreferences = contactUserPreferences user userPreferences profilePreferences' $ connIncognito conn
   pure $
     Contact
       { contactId,

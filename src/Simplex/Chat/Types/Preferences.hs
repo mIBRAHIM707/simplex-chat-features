@@ -830,7 +830,7 @@ prefStateText feature allowed param = case allowed of
   FANo -> "cancelled " <> chatFeatureNameText feature
   _ -> case feature of
     CFTimedMessages -> "changed " <> chatFeatureNameText feature <> paramText_ feature param
-    _ -> "offered " <> chatFeatureNameText feature <> paramText_ feature param
+    _ -> "enabled " <> chatFeatureNameText feature <> paramText_ feature param
 
 featureStateText :: ChatFeature -> PrefEnabled -> Maybe Int -> Text
 featureStateText feature enabled param =
