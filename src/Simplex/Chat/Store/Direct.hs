@@ -240,8 +240,11 @@ createIncognitoProfile db User {userId} p = do
 
 createDirectContact :: DB.Connection -> User -> Connection -> Profile -> ExceptT StoreError IO Contact
 createDirectContact db user conn@Connection {connId, localAlias} p = do
-  let userDefaultTTL = let User {defaultTimerTTL = ttl} = user in ttl
-      contactDefaultTTL = let Profile {defaultTimerTTL = ttl} = p in ttl
+  let userDefaultTTL = let User {defaultTimerTTL = ttl} = user in if ttl > 0 then ttl else 86400
+      -- Use profile's defaultTimerTTL, or fall back to 86400 (1 day) if not set
+      contactDefaultTTL = case let Profile {defaultTimerTTL = ttl} = p in ttl of
+        Just ttl | ttl > 0 -> Just ttl
+        _ -> Just 86400  -- Default 1 day timer when not specified
       userId = let User {userId = uid} = user in uid
       profilePreferences = let Profile {preferences = prefs} = p in prefs
   currentTs <- liftIO getCurrentTime
