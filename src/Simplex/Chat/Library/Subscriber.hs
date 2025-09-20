@@ -2048,14 +2048,13 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     processContactProfileUpdate :: Contact -> Profile -> Bool -> CM Contact
     processContactProfileUpdate c@Contact {profile = lp, contactId = ctId, activeConn, chatItemTTL = oldChatItemTTL} p' createItems
       | p /= p' = do
-          -- Persist updated contact preferences and also persist negotiated chat-level TTL
-          -- If negotiated TTL changed, clear or reschedule unread timed items accordingly.
+          -- For profile updates, preserve the existing chatItemTTL (conversation timer) that was negotiated during initial connection.
+          -- Only update user preferences without changing the conversation timer unless this is the initial connection.
           (c', timedDeleteAtList) <- withStore $ \db -> do
-            -- Update stored user preferences for contact. Do NOT persist negotiated TTL to chatItemTTL
-            -- so that local deletion continues to rely on the user's global TTL.
-            c' <- liftIO $ updateContactUserPreferences db user c ctUserPrefs'
-            -- We only need to (re)schedule timers for unread items if feature newly enabled with a concrete ttl param.
-            case negotiatedTTL of
+            -- Update contact profile but preserve existing chatItemTTL (conversation timer)
+            c' <- liftIO $ updateContactProfile db user c p' 
+            -- Only reschedule timers if there's an existing chatItemTTL and timed messages are enabled
+            case oldChatItemTTL of
               Nothing -> pure (c', [])
               Just _ -> do
                 currentTs <- liftIO getCurrentTime
@@ -2076,35 +2075,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           pure c
       where
         p = fromLocalProfileWithDefault lp userTTL
-        Contact {userPreferences = ctUserPrefs@Preferences {timedMessages = ctUserTMPref}} = c
-        userTTL = fromIntegral $ fromMaybe 86400 userTTL_  -- Use user's defaultTimerTTL (Int64) with fallback
-        userTTL_ = Just $ let User {defaultTimerTTL = ttl} = user in ttl  -- Get from user object
-        Profile {preferences = rcvPrefs_, defaultTimerTTL = rcvDefaultTTL} = p'
-        rcvTTL = fromIntegral <$> prefParam (getPreference SCFTimedMessages rcvPrefs_)
-        userId = let User {userId = u} = user in u
-        -- For initial connections, use user's privacy setting (defaultTimerTTL) instead of fullPreferences
-        User {defaultTimerTTL = userPrivacyTTL} = user
-        userPrivacyTTLInt = if userPrivacyTTL > 0 then Just (fromIntegral userPrivacyTTL) else Nothing
-        -- Compute negotiated TTL based on local and remote privacy settings for initial connection
-        contactPrefTTL = fromIntegral <$> (prefParam =<< ctUserTMPref)
-        localCandidateTTL = case oldChatItemTTL of
-          Nothing -> userPrivacyTTLInt  -- Use privacy setting for initial connection
-          Just _ -> contactPrefTTL <|> (fromIntegral <$> oldChatItemTTL)
-        negotiatedTTL = case (localCandidateTTL, rcvDefaultTTL) of
-          (Just uTTL, Just rTTL) -> Just $ min uTTL (fromIntegral rTTL)
-          (Just uTTL, Nothing) -> Just uTTL
-          (Nothing, Just rTTL) -> Just (fromIntegral rTTL)
-          (Nothing, Nothing) -> Nothing
-        ctUserPrefs' =
-          let
-              -- For initial connections, set user preferences based on negotiated TTL
-              -- but do NOT persist this to chatItemTTL (which controls local device deletion)
-              ctUserTMPref' = case negotiatedTTL of
-                Just ttlVal -> Just (TimedMessagesPreference {allow = FAYes, ttl = Just (fromIntegral ttlVal)})
-                Nothing -> case ctUserTMPref of
-                  Just userTM -> Just (userTM {ttl = Nothing} :: TimedMessagesPreference)
-                  Nothing -> Just (TimedMessagesPreference {allow = FAYes, ttl = Nothing})
-           in setPreference_ SCFTimedMessages ctUserTMPref' ctUserPrefs
+        userTTL = 86400  -- Default fallback TTL (24 hours)
         createProfileUpdatedItem c' =
           when visibleProfileUpdated $ do
             let ciContent = CIRcvDirectEvent $ RDEProfileUpdated p p'

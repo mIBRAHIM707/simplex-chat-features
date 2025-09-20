@@ -275,8 +275,9 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
         contactGroupMemberId = Nothing,
         contactGrpInvSent = False,
         chatTags = [],
-        -- Leave chatItemTTL unset so local deletion uses the global TTL, not the negotiated per-contact default.
-        chatItemTTL = Nothing,
+        -- Set chatItemTTL to negotiated minimum for conversation timer (this controls outgoing message timer)
+        -- This is separate from local device deletion which uses global user settings
+        chatItemTTL = fromIntegral <$> negotiatedTTL,
         uiThemes = Nothing,
         chatDeleted = False,
         customData = Nothing
