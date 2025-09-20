@@ -2051,18 +2051,15 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           -- Persist updated contact preferences and also persist negotiated chat-level TTL
           -- If negotiated TTL changed, clear or reschedule unread timed items accordingly.
           (c', timedDeleteAtList) <- withStore $ \db -> do
-            -- update stored user preferences for contact
+            -- Update stored user preferences for contact. Do NOT persist negotiated TTL to chatItemTTL
+            -- so that local deletion continues to rely on the user's global TTL.
             c' <- liftIO $ updateContactUserPreferences db user c ctUserPrefs'
-            -- persist chat-level TTL (ensure Int -> Int64 conversion)
-            liftIO $ setDirectChatTTL db ctId (fromIntegral <$> negotiatedTTL)
+            -- We only need to (re)schedule timers for unread items if feature newly enabled with a concrete ttl param.
             case negotiatedTTL of
-              Nothing -> do
-                -- disable disappearing for future messages only; do NOT clear timers for messages sent before this change
-                pure (c', [])
+              Nothing -> pure (c', [])
               Just _ -> do
-                -- For unread timed items, preserve each message's own timed_ttl and schedule deleteAt = now + timed_ttl
                 currentTs <- liftIO getCurrentTime
-                timedItems <- liftIO $ getDirectUnreadTimedItems db user ctId -- returns [(ChatItemId, Int)] where Int is the per-message ttl
+                timedItems <- liftIO $ getDirectUnreadTimedItems db user ctId
                 timedDeleteAtList <- liftIO $ setDirectChatItemsDeleteAt db user ctId timedItems currentTs
                 pure (c', timedDeleteAtList)
           -- Don't send profile updates when processing incoming XInfo to prevent feedback loops

@@ -2870,15 +2870,10 @@ processChatCommand' vr = \case
                 Nothing -> Nothing  -- Don't set chat-level TTL for contact pref changes
 
           timedDeleteAtList <- withStore $ \db -> do
-            -- For contact preference changes, we don't change the chat-level TTL.
-            -- Only persist TTL changes that result from mutual negotiation between users.
-            case negotiatedTTL of
-              Just ttlVal -> liftIO $ setDirectChatTTL db (contactId' ct) (Just $ fromIntegral ttlVal)
-              Nothing -> pure ()  -- Don't change existing chat-level TTL for contact pref changes
+            -- Keep chat-level TTL unchanged; only schedule timers if existing chatItemTTL present.
             case negotiatedTTL of
               Nothing -> pure []
               Just _ -> do
-                -- For unread timed items, schedule deletes based on each message's own timed_ttl
                 currentTs <- liftIO getCurrentTime
                 timedItems <- liftIO $ getDirectUnreadTimedItems db user (contactId' ct)
                 liftIO $ setDirectChatItemsDeleteAt db user (contactId' ct) timedItems currentTs
@@ -2888,12 +2883,24 @@ processChatCommand' vr = \case
           incognitoProfile <- forM customUserProfileId $ \profileId -> withStore $ \db -> getProfileById db userId profileId
           let mergedProfile = userProfileToSend user (fromLocalProfile <$> incognitoProfile) (Just ct) False
               mergedProfile' = userProfileToSend user (fromLocalProfile <$> incognitoProfile) (Just ct') False
+          -- Always send profile update if merged profile changed
           when (mergedProfile' /= mergedProfile) $
             withContactLock "updateProfile" (contactId' ct) $ do
               void (sendDirectContactMessage user ct' $ XInfo mergedProfile') `catchChatError` eToView
-              -- Note: we don't create feature items here because contact preference changes 
-              -- are applied immediately, not offered. The contact will receive the profile update
-              -- and both users will be notified via CRContactPrefsUpdated response.
+          -- Additionally, create a local feature preference item so both sides show the change.
+          -- We only generate for features whose preference changed (e.g., timed messages TTL or allow state).
+          let prefChanged :: Bool
+              prefChanged = userPreferences /= contactUserPrefs'
+          when prefChanged $ do
+            -- Recompute merged preferences so feature item reflects new state
+            let ct'' = updateMergedPreferences user ct'
+                ContactUserPreference {userPreference} = getContactUserPreference SCFTimedMessages (mergedPreferences ct'')
+                TimedMessagesPreference {allow = tmAllow, ttl = tmTTL} = case userPreference of
+                  CUPContact {preference} -> preference
+                  CUPUser {preference} -> preference
+            -- Create an internal chat item representing the updated preference for the sender
+            ci <- createInternalChatItem user (CDDirectSnd ct'') (CISndChatPreference CFTimedMessages tmAllow (fromIntegral <$> tmTTL)) Nothing
+            toView $ CEvtNewChatItems user [AChatItem SCTDirect SMDSnd (DirectChat ct'') ci]
 
           -- start proximate timed item threads for any rescheduled items
           forM_ timedDeleteAtList $ \(itemId, deleteAt) -> startProximateTimedItemThread user (ChatRef CTDirect (contactId' ct), itemId) deleteAt

@@ -248,15 +248,15 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
   (localDisplayName, contactId, profileId) <- createContact_ db userId p localAlias Nothing currentTs
   liftIO $ DB.execute db "UPDATE connections SET contact_id = ?, updated_at = ? WHERE connection_id = ?" (contactId, currentTs, connId)
   let profile = toLocalProfile profileId p localAlias
-      initialTTL = case (userDefaultTTL, contactDefaultTTL) of
+      -- Negotiate per-contact default timed messages TTL (min of user + contact if both set) ONLY for message timing.
+      -- Do NOT persist this into chatItemTTL so that local message deletion keeps using the global user TTL.
+      negotiatedTTL = case (userDefaultTTL, contactDefaultTTL) of
         (uTTL, Just cTTL) -> Just $ min uTTL cTTL
         (uTTL, Nothing) -> Just uTTL
-      userPreferences = case initialTTL of
+      userPreferences = case negotiatedTTL of
         Just ttl -> setPreference_ SCFTimedMessages (Just $ TimedMessagesPreference {allow = FAYes, ttl = Just (fromIntegral ttl)}) emptyChatPrefs
         Nothing -> emptyChatPrefs
       mergedPreferences = contactUserPreferences user userPreferences profilePreferences $ connIncognito conn
-  -- Persist the negotiated chat TTL into the contacts table so it is authoritative for the chat
-  forM_ initialTTL $ \ttlVal -> liftIO $ setDirectChatTTL db contactId (Just $ fromIntegral ttlVal)
   pure $
     Contact
       { contactId,
@@ -275,7 +275,8 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
         contactGroupMemberId = Nothing,
         contactGrpInvSent = False,
         chatTags = [],
-        chatItemTTL = fmap fromIntegral initialTTL,
+        -- Leave chatItemTTL unset so local deletion uses the global TTL, not the negotiated per-contact default.
+        chatItemTTL = Nothing,
         uiThemes = Nothing,
         chatDeleted = False,
         customData = Nothing
