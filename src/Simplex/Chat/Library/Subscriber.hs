@@ -2056,7 +2056,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
             if needsTimerNegotiation
               then do
                 -- Perform timer negotiation for initial connection using createDirectContact logic
-                let contactDefaultTTL = defaultTimerTTL p'
+                let contactDefaultTTL = defaultTimerTTL (p' :: Profile)
                     negotiatedTTL = case (userDefaultTTL, contactDefaultTTL) of
                       (uTTL, Just cTTL) -> Just $ min uTTL cTTL
                       (uTTL, Nothing) -> Just uTTL
@@ -2082,7 +2082,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                       (ttlInt64, encodeJSON newUserPrefs, userId, ctId)
                     
                     -- Update the contact with negotiated timer and enabled preferences
-                    let mergedPreferences = contactUserPreferences user newUserPrefs (preferences p') $ contactConnIncognito c'
+                    let mergedPreferences = contactUserPreferences user newUserPrefs (preferences (p' :: Profile)) $ contactConnIncognito c'
                         c'' = c' { chatItemTTL = Just ttlInt64, userPreferences = newUserPrefs, mergedPreferences }
                     pure (c'', [], True)  -- Signal that profile update is needed
               else do
