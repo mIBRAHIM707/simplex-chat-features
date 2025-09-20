@@ -2068,10 +2068,11 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                 case negotiatedTTL of
                   Nothing -> pure (c', [], False)
                   Just ttl -> do
-                    let ttlInt64 = fromIntegral ttl
+                    let ttlInt64 = ttl
+                        ttlInt = fromIntegral ttl
                         -- Set timer preference to enabled for negotiated timer 
                         newUserPrefs = Preferences {
-                          timedMessages = Just $ TimedMessagesPreference FAYes (Just ttl),
+                          timedMessages = Just $ TimedMessagesPreference FAYes (Just ttlInt),
                           fullDelete = Nothing,
                           reactions = Nothing,
                           voice = Nothing,
