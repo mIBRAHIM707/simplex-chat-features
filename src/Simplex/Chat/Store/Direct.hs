@@ -276,7 +276,7 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
         contactGrpInvSent = False,
         chatTags = [],
         -- Leave chatItemTTL unset so local deletion uses the global TTL, not the negotiated per-contact default.
-        chatItemTTL = Nothing,
+        chatItemTTL = negotiatedTTL,
         uiThemes = Nothing,
         chatDeleted = False,
         customData = Nothing
