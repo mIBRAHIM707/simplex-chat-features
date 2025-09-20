@@ -2895,6 +2895,17 @@ processChatCommand' vr = \case
             -- Recompute merged preferences and create standard feature change items (both allow state / parameter changes)
             let ct'' = updateMergedPreferences user ct'
             lift $ createSndFeatureItems user ct ct''
+            -- Send notification to the other user about timer preference changes
+            -- specifically for disappearing message timer changes
+            let oldTimedPref = getPreference SCFTimedMessages contactUserPrefs
+                newTimedPref = getPreference SCFTimedMessages contactUserPrefs'
+            when (oldTimedPref /= newTimedPref) $ do
+              -- Send a notification message about the timer change 
+              let timerChangeMsg = case prefParam newTimedPref of
+                    Just newTTL -> "Disappearing message timer changed to " <> show newTTL <> " seconds"
+                    Nothing -> "Disappearing messages disabled"
+              withContactLock "timerChangeNotification" (contactId' ct) $ do
+                void (sendDirectContactMessage user ct' $ XMsgNew $ MsgContainer (MCText timerChangeMsg) Nothing Nothing Nothing False) `catchChatError` eToView
 
           -- start proximate timed item threads for any rescheduled items
           forM_ timedDeleteAtList $ \(itemId, deleteAt) -> startProximateTimedItemThread user (ChatRef CTDirect (contactId' ct), itemId) deleteAt

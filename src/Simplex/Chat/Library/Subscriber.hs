@@ -2097,7 +2097,8 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           (Nothing, Nothing) -> Nothing
         ctUserPrefs' =
           let
-              -- Use the same negotiatedTTL that was computed above for persistence consistency
+              -- For initial connections, set user preferences based on negotiated TTL
+              -- but do NOT persist this to chatItemTTL (which controls local device deletion)
               ctUserTMPref' = case negotiatedTTL of
                 Just ttlVal -> Just (TimedMessagesPreference {allow = FAYes, ttl = Just (fromIntegral ttlVal)})
                 Nothing -> case ctUserTMPref of
