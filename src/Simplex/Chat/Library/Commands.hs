@@ -2902,10 +2902,10 @@ processChatCommand' vr = \case
             when (oldTimedPref /= newTimedPref) $ do
               -- Send a notification message about the timer change 
               let timerChangeMsg = case prefParam newTimedPref of
-                    Just newTTL -> "Disappearing message timer changed to " <> show newTTL <> " seconds"
+                    Just newTTL -> "Disappearing message timer changed to " <> T.pack (show newTTL) <> " seconds"
                     Nothing -> "Disappearing messages disabled"
               withContactLock "timerChangeNotification" (contactId' ct) $ do
-                void (sendDirectContactMessage user ct' $ XMsgNew $ MsgContainer (MCText timerChangeMsg) Nothing Nothing Nothing False) `catchChatError` eToView
+                void (sendDirectContactMessage user ct' $ XMsgNew $ MCSimple (extMsgContent (MCText timerChangeMsg) Nothing)) `catchChatError` eToView
 
           -- start proximate timed item threads for any rescheduled items
           forM_ timedDeleteAtList $ \(itemId, deleteAt) -> startProximateTimedItemThread user (ChatRef CTDirect (contactId' ct), itemId) deleteAt
