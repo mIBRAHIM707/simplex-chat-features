@@ -2890,17 +2890,11 @@ processChatCommand' vr = \case
           -- Additionally, create a local feature preference item so both sides show the change.
           -- We only generate for features whose preference changed (e.g., timed messages TTL or allow state).
           let prefChanged :: Bool
-              prefChanged = userPreferences /= contactUserPrefs'
+              prefChanged = contactUserPrefs /= contactUserPrefs'
           when prefChanged $ do
-            -- Recompute merged preferences so feature item reflects new state
+            -- Recompute merged preferences and create standard feature change items (both allow state / parameter changes)
             let ct'' = updateMergedPreferences user ct'
-                ContactUserPreference {userPreference} = getContactUserPreference SCFTimedMessages (mergedPreferences ct'')
-                TimedMessagesPreference {allow = tmAllow, ttl = tmTTL} = case userPreference of
-                  CUPContact {preference} -> preference
-                  CUPUser {preference} -> preference
-            -- Create an internal chat item representing the updated preference for the sender
-            ci <- createInternalChatItem user (CDDirectSnd ct'') (CISndChatPreference CFTimedMessages tmAllow (fromIntegral <$> tmTTL)) Nothing
-            toView $ CEvtNewChatItems user [AChatItem SCTDirect SMDSnd (DirectChat ct'') ci]
+            lift $ createSndFeatureItems user ct ct''
 
           -- start proximate timed item threads for any rescheduled items
           forM_ timedDeleteAtList $ \(itemId, deleteAt) -> startProximateTimedItemThread user (ChatRef CTDirect (contactId' ct), itemId) deleteAt
