@@ -2052,7 +2052,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           -- Only update user preferences without changing the conversation timer unless this is the initial connection.
           (c', timedDeleteAtList) <- withStore $ \db -> do
             -- Update contact profile but preserve existing chatItemTTL (conversation timer)
-            c' <- liftIO $ updateContactProfile db user c p' 
+            c' <- updateContactProfile db user c p' 
             -- Only reschedule timers if there's an existing chatItemTTL and timed messages are enabled
             case oldChatItemTTL of
               Nothing -> pure (c', [])
