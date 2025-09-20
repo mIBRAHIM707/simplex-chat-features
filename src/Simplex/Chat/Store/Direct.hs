@@ -240,11 +240,8 @@ createIncognitoProfile db User {userId} p = do
 
 createDirectContact :: DB.Connection -> User -> Connection -> Profile -> ExceptT StoreError IO Contact
 createDirectContact db user conn@Connection {connId, localAlias} p = do
-  let userDefaultTTL = let User {defaultTimerTTL = ttl} = user in if ttl > 0 then ttl else 86400
-      -- Use profile's defaultTimerTTL, or fall back to 86400 (1 day) if not set
-      contactDefaultTTL = case let Profile {defaultTimerTTL = ttl} = p in ttl of
-        Just ttl | ttl > 0 -> Just ttl
-        _ -> Just 86400  -- Default 1 day timer when not specified
+  let userDefaultTTL = let User {defaultTimerTTL = ttl} = user in ttl
+      contactDefaultTTL = let Profile {defaultTimerTTL = ttl} = p in ttl
       userId = let User {userId = uid} = user in uid
       profilePreferences = let Profile {preferences = prefs} = p in prefs
   currentTs <- liftIO getCurrentTime
@@ -252,21 +249,14 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
   liftIO $ DB.execute db "UPDATE connections SET contact_id = ?, updated_at = ? WHERE connection_id = ?" (contactId, currentTs, connId)
   let profile = toLocalProfile profileId p localAlias
       -- Negotiate per-contact default timed messages TTL (min of user + contact if both set) ONLY for message timing.
-      -- This sets the conversation timer while keeping local device deletion separate.
+      -- Do NOT persist this into chatItemTTL so that local message deletion keeps using the global user TTL.
       negotiatedTTL = case (userDefaultTTL, contactDefaultTTL) of
-        (uTTL, Just cTTL) | uTTL > 0 && cTTL > 0 -> Just $ min uTTL cTTL
-        (uTTL, Just cTTL) | uTTL > 0 -> Just uTTL
-        (uTTL, Just cTTL) | cTTL > 0 -> Just cTTL
-        (uTTL, Nothing) | uTTL > 0 -> Just uTTL
-        _ -> Nothing
+        (uTTL, Just cTTL) -> Just $ min uTTL cTTL
+        (uTTL, Nothing) -> Just uTTL
       userPreferences = case negotiatedTTL of
         Just ttl -> setPreference_ SCFTimedMessages (Just $ TimedMessagesPreference {allow = FAYes, ttl = Just (fromIntegral ttl)}) emptyChatPrefs
         Nothing -> emptyChatPrefs
-      -- Force contact profile preferences to have timed messages enabled when we have a negotiated timer
-      profilePreferences' = case negotiatedTTL of
-        Just _ -> Just $ setPreference_ SCFTimedMessages (Just $ TimedMessagesPreference {allow = FAYes, ttl = Nothing}) (fromMaybe emptyChatPrefs profilePreferences)
-        Nothing -> profilePreferences
-      mergedPreferences = contactUserPreferences user userPreferences profilePreferences' $ connIncognito conn
+      mergedPreferences = contactUserPreferences user userPreferences profilePreferences $ connIncognito conn
   pure $
     Contact
       { contactId,
@@ -285,9 +275,8 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
         contactGroupMemberId = Nothing,
         contactGrpInvSent = False,
         chatTags = [],
-        -- Set chatItemTTL to negotiated minimum for conversation timer (this controls outgoing message timer)
-        -- This is separate from local device deletion which uses global user settings
-        chatItemTTL = fromIntegral <$> negotiatedTTL,
+        -- Leave chatItemTTL unset so local deletion uses the global TTL, not the negotiated per-contact default.
+        chatItemTTL = Nothing,
         uiThemes = Nothing,
         chatDeleted = False,
         customData = Nothing

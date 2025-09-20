@@ -2895,13 +2895,6 @@ processChatCommand' vr = \case
             -- Recompute merged preferences and create standard feature change items (both allow state / parameter changes)
             let ct'' = updateMergedPreferences user ct'
             lift $ createSndFeatureItems user ct ct''
-            -- For timer changes, always send a profile update to ensure the other user is notified
-            -- even if the merged profile hasn't changed significantly
-            let oldTimedPref = getPreference SCFTimedMessages contactUserPrefs
-                newTimedPref = getPreference SCFTimedMessages contactUserPrefs'
-            when (oldTimedPref /= newTimedPref && mergedProfile' == mergedProfile) $
-              withContactLock "timerChangeProfile" (contactId' ct) $ do
-                void (sendDirectContactMessage user ct' $ XInfo mergedProfile') `catchChatError` eToView
 
           -- start proximate timed item threads for any rescheduled items
           forM_ timedDeleteAtList $ \(itemId, deleteAt) -> startProximateTimedItemThread user (ChatRef CTDirect (contactId' ct), itemId) deleteAt
