@@ -249,10 +249,13 @@ createDirectContact db user conn@Connection {connId, localAlias} p = do
   liftIO $ DB.execute db "UPDATE connections SET contact_id = ?, updated_at = ? WHERE connection_id = ?" (contactId, currentTs, connId)
   let profile = toLocalProfile profileId p localAlias
       -- Negotiate per-contact default timed messages TTL (min of user + contact if both set) ONLY for message timing.
-      -- Do NOT persist this into chatItemTTL so that local message deletion keeps using the global user TTL.
+      -- This sets the conversation timer while keeping local device deletion separate.
       negotiatedTTL = case (userDefaultTTL, contactDefaultTTL) of
-        (uTTL, Just cTTL) -> Just $ min uTTL cTTL
-        (uTTL, Nothing) -> Just uTTL
+        (uTTL, Just cTTL) | uTTL > 0 && cTTL > 0 -> Just $ min uTTL cTTL
+        (uTTL, Just cTTL) | uTTL > 0 -> Just uTTL
+        (uTTL, Just cTTL) | cTTL > 0 -> Just cTTL
+        (uTTL, Nothing) | uTTL > 0 -> Just uTTL
+        _ -> Nothing
       userPreferences = case negotiatedTTL of
         Just ttl -> setPreference_ SCFTimedMessages (Just $ TimedMessagesPreference {allow = FAYes, ttl = Just (fromIntegral ttl)}) emptyChatPrefs
         Nothing -> emptyChatPrefs
