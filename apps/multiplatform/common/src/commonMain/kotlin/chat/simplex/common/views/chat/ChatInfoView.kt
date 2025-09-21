@@ -78,7 +78,9 @@ fun ChatInfoView(
   val chatRh = chat.remoteHostId
   val sendReceipts = remember(contact.id) { mutableStateOf(SendReceipts.fromBool(contact.chatSettings.sendRcpts, currentUser.sendRcptsContacts)) }
   val chatItemTTL = remember(contact.id) { mutableStateOf(if (contact.chatItemTTL != null) ChatItemTTL.fromSeconds(contact.chatItemTTL) else null) }
-  val deletingItems = rememberSaveable(contact.id) { mutableStateOf(false) }    ChatInfoLayout(
+  val deletingItems = rememberSaveable(contact.id) { mutableStateOf(false) }
+
+    ChatInfoLayout(
       chat,
       contact,
       currentUser,
