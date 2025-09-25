@@ -832,6 +832,12 @@ object ChatController {
     throw Exception("failed to get user default timer TTL: ${r.responseType} ${r.details}")
   }
 
+  suspend fun apiSetContactTimer(rh: Long?, contactId: Long, timerTTL: Long?): Contact {
+    val r = sendCmd(rh, CC.APISetContactTimer(contactId, timerTTL))
+    if (r is API.Result && r.res is CR.ContactTimerUpdated) return r.res.contact
+    throw Exception("failed to set contact timer: ${r.responseType} ${r.details}")
+  }
+
   suspend fun apiSaveAppSettings(settings: AppSettings) {
     val r = sendCmd(null, CC.ApiSaveSettings(settings))
     if (r.result is CR.CmdOk) return
@@ -2963,6 +2969,26 @@ object ChatController {
           }
         }
       }
+      is CR.TimerNegotiated -> {
+        if (active(r.user) && r.contact.directOrUsed) {
+          withContext(Dispatchers.Main) {
+            chatModel.chatsContext.updateContact(rhId, r.contact)
+            // TODO: Show notification for timer negotiation 
+            Log.d(TAG, "Timer negotiated for contact ${r.contact.displayName}: ${formatTimerDuration(r.timerTTL)}")
+          }
+        }
+      }
+      is CR.ContactTimerUpdated -> {
+        if (active(r.user) && r.contact.directOrUsed) {
+          withContext(Dispatchers.Main) {
+            chatModel.chatsContext.updateContact(rhId, r.contact)
+            // TODO: Show notification for timer update
+            val fromText = r.fromTimer?.let { formatTimerDuration(it) } ?: "off"
+            val toText = r.toTimer?.let { formatTimerDuration(it) } ?: "off"
+            Log.d(TAG, "Timer updated for contact ${r.contact.displayName}: from $fromText to $toText")
+          }
+        }
+      }
       else ->
         Log.d(TAG , "unsupported event: ${msg.responseType}")
     }
@@ -3362,6 +3388,7 @@ sealed class CC {
   class APIGetChatItemTTL(val userId: Long): CC()
   class APISetUserDefaultTimerTTL(val userId: Long, val seconds: Long): CC()
   class APIGetUserDefaultTimerTTL(val userId: Long): CC()
+  class APISetContactTimer(val contactId: Long, val timerTTL: Long?): CC()
   class APISetChatTTL(val userId: Long, val chatType: ChatType, val id: Long, val seconds: Long?): CC()
   class APISetNetworkConfig(val networkConfig: NetCfg): CC()
   class APIGetNetworkConfig: CC()
@@ -3549,6 +3576,7 @@ sealed class CC {
     is APIGetChatItemTTL -> "/_ttl $userId"
   is APISetUserDefaultTimerTTL -> "/_default_timer_ttl $userId $seconds"
   is APIGetUserDefaultTimerTTL -> "/_default_timer_ttl $userId"
+    is APISetContactTimer -> "/_set timer @$contactId ${timerTTL ?: "off"}"
     is APISetChatTTL -> "/_ttl $userId ${chatRef(chatType, id)} ${chatItemTTLStr(seconds)}"
     is APISetNetworkConfig -> "/_network ${json.encodeToString(networkConfig)}"
     is APIGetNetworkConfig -> "/network"
@@ -3714,6 +3742,7 @@ sealed class CC {
     is APIGetChatItemTTL -> "apiGetChatItemTTL"
   is APISetUserDefaultTimerTTL -> "apiSetUserDefaultTimerTTL"
   is APIGetUserDefaultTimerTTL -> "apiGetUserDefaultTimerTTL"
+    is APISetContactTimer -> "apiSetContactTimer"
     is APISetChatTTL -> "apiSetChatTTL"
     is APISetNetworkConfig -> "apiSetNetworkConfig"
     is APIGetNetworkConfig -> "apiGetNetworkConfig"
@@ -3802,6 +3831,17 @@ sealed class CC {
   fun chatItemTTLStr(seconds: Long?): String {
     if (seconds == null) return "default"
     return seconds.toString()
+  }
+
+  fun formatTimerDuration(seconds: Long): String {
+    return when {
+      seconds < 60 -> "${seconds}s"
+      seconds < 3600 -> "${seconds / 60}m"
+      seconds < 86400 -> "${seconds / 3600}h"
+      seconds < 2592000 -> "${seconds / 86400}d"
+      seconds < 31536000 -> "${seconds / 2592000}mo"
+      else -> "${seconds / 31536000}y"
+    }
   }
 
   val obfuscated: CC
@@ -5799,6 +5839,8 @@ sealed class CR {
   @Serializable @SerialName("groupAliasUpdated") class GroupAliasUpdated(val user: UserRef, val toGroup: GroupInfo): CR()
   @Serializable @SerialName("connectionAliasUpdated") class ConnectionAliasUpdated(val user: UserRef, val toConnection: PendingContactConnection): CR()
   @Serializable @SerialName("contactPrefsUpdated") class ContactPrefsUpdated(val user: UserRef, val fromContact: Contact, val toContact: Contact): CR()
+  @Serializable @SerialName("timerNegotiated") class TimerNegotiated(val user: UserRef, val contact: Contact, val timerTTL: Long): CR()
+  @Serializable @SerialName("contactTimerUpdated") class ContactTimerUpdated(val user: UserRef, val contact: Contact, val fromTimer: Long?, val toTimer: Long?): CR()
   @Serializable @SerialName("userContactLink") class UserContactLink(val user: User, val contactLink: UserContactLinkRec): CR()
   @Serializable @SerialName("userContactLinkUpdated") class UserContactLinkUpdated(val user: User, val contactLink: UserContactLinkRec): CR()
   @Serializable @SerialName("userContactLinkCreated") class UserContactLinkCreated(val user: User, val connLinkContact: CreatedConnLink): CR()
@@ -5977,6 +6019,8 @@ sealed class CR {
     is GroupAliasUpdated -> "groupAliasUpdated"
     is ConnectionAliasUpdated -> "connectionAliasUpdated"
     is ContactPrefsUpdated -> "contactPrefsUpdated"
+    is TimerNegotiated -> "timerNegotiated"
+    is ContactTimerUpdated -> "contactTimerUpdated"
     is UserContactLink -> "userContactLink"
     is UserContactLinkUpdated -> "userContactLinkUpdated"
     is UserContactLinkCreated -> "userContactLinkCreated"
@@ -6146,6 +6190,8 @@ sealed class CR {
     is GroupAliasUpdated -> withUser(user, json.encodeToString(toGroup))
     is ConnectionAliasUpdated -> withUser(user, json.encodeToString(toConnection))
     is ContactPrefsUpdated -> withUser(user, "fromContact: $fromContact\ntoContact: \n${json.encodeToString(toContact)}")
+    is TimerNegotiated -> withUser(user, "contact: ${contact.id}, timerTTL: $timerTTL")
+    is ContactTimerUpdated -> withUser(user, "contact: ${contact.id}, fromTimer: $fromTimer, toTimer: $toTimer")
     is UserContactLink -> withUser(user, contactLink.responseDetails)
     is UserContactLinkUpdated -> withUser(user, contactLink.responseDetails)
     is UserContactLinkCreated -> withUser(user, json.encodeToString(connLinkContact))

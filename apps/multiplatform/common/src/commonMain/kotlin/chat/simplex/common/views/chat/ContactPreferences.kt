@@ -8,11 +8,15 @@ import SectionTextFooter
 import SectionView
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Text
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.Modifier
+import dev.icerock.moko.resources.compose.painterResource
 import dev.icerock.moko.resources.compose.stringResource
 import chat.simplex.common.ui.theme.*
 import chat.simplex.common.views.helpers.*
@@ -87,7 +91,14 @@ private fun ContactPreferencesLayout(
     val onTTLUpdated = { ttl: Int? ->
       applyPrefs(featuresAllowed.copy(timedMessagesTTL = ttl))
     }
-    TimedMessagesFeatureSection(featuresAllowed, contact.mergedPreferences.timedMessages, timedMessages, onTTLUpdated) { allowed, ttl ->
+    TimedMessagesFeatureSection(
+      featuresAllowed = featuresAllowed, 
+      pref = contact.mergedPreferences.timedMessages, 
+      allowFeature = timedMessages,
+      contact = contact,
+      rhId = rhId,
+      onTTLUpdated = onTTLUpdated
+    ) { allowed, ttl ->
       applyPrefs(featuresAllowed.copy(timedMessagesAllowed = allowed, timedMessagesTTL = ttl ?: currentFeaturesAllowed.timedMessagesTTL))
     }
     SectionDividerSpaced(true)
@@ -160,6 +171,8 @@ private fun TimedMessagesFeatureSection(
   featuresAllowed: ContactFeaturesAllowed,
   pref: ContactUserPreferenceTimed,
   allowFeature: State<Boolean>,
+  contact: Contact,
+  rhId: Long?,
   onTTLUpdated: (Int?) -> Unit,
   onSelected: (Boolean, Int?) -> Unit
 ) {
@@ -199,6 +212,56 @@ private fun TimedMessagesFeatureSection(
     } else if (pref.contactPreference.allow == FeatureAllowed.YES || pref.contactPreference.allow == FeatureAllowed.ALWAYS) {
       InfoRow(generalGetString(MR.strings.delete_after), timeText(pref.contactPreference.ttl))
     }
+    
+    // Show current chat timer (actual negotiated timer)
+    SectionDividerSpaced(false)
+    Text(
+      text = "CURRENT CHAT TIMER",
+      style = MaterialTheme.typography.body2,
+      color = MaterialTheme.colors.secondary
+    )
+    val currentChatTimer = contact.chatItemTTL
+    InfoRow(
+      label = "Messages disappear after",
+      value = currentChatTimer?.let { formatTimerDuration(it) } ?: "Off"
+    )
+    
+    // Allow manual override of chat timer
+    var showTimerDialog by rememberSaveable { mutableStateOf(false) }
+    SectionItemView(
+      click = { showTimerDialog = true }
+    ) {
+      Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Text("Override chat timer")
+        Text(
+          text = "Change",
+          color = MaterialTheme.colors.primary
+        )
+      }
+    }
+    
+    if (showTimerDialog) {
+      TimerPickerDialog(
+        currentTimer = currentChatTimer,
+        onTimerSelected = { newTimer ->
+          // Update chat timer
+          withBGApi {
+            val updatedContact = chatModel.controller.apiSetContactTimer(rhId, contact.contactId, newTimer)
+            if (updatedContact != null) {
+              withContext(Dispatchers.Main) {
+                chatModel.chatsContext.updateContact(rhId, updatedContact)
+              }
+            }
+          }
+          showTimerDialog = false
+        },
+        onDismiss = { showTimerDialog = false }
+      )
+    }
   }
   SectionTextFooter(ChatFeature.TimedMessages.enabledDescription(enabled))
 }
@@ -213,6 +276,48 @@ private fun ResetSaveButtons(reset: () -> Unit, save: () -> Unit, disabled: Bool
       Text(stringResource(MR.strings.save_and_notify_contact), color = if (disabled) MaterialTheme.colors.secondary else MaterialTheme.colors.primary)
     }
   }
+}
+
+@Composable
+private fun TimerPickerDialog(
+  currentTimer: Long?,
+  onTimerSelected: (Long?) -> Unit,
+  onDismiss: () -> Unit
+) {
+  val timerOptions = listOf(
+    null to "Off",
+    60L to "1 minute",
+    300L to "5 minutes", 
+    1800L to "30 minutes",
+    3600L to "1 hour",
+    28800L to "8 hours",
+    86400L to "1 day",
+    604800L to "1 week",
+    2592000L to "1 month",
+    31536000L to "1 year"
+  )
+
+  AlertDialog(
+    onDismissRequest = onDismiss,
+    title = { Text("Select Timer Duration") },
+    text = {
+      LazyColumn {
+        items(timerOptions) { (value, label) ->
+          SectionItemView(
+            click = { onTimerSelected(value) },
+            selected = value == currentTimer
+          ) {
+            Text(label)
+          }
+        }
+      }
+    },
+    confirmButton = {
+      TextButton(onClick = onDismiss) {
+        Text("Cancel")
+      }
+    }
+  )
 }
 
 private fun showUnsavedChangesAlert(save: () -> Unit, revert: () -> Unit) {
