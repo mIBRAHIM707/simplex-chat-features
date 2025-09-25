@@ -222,8 +222,8 @@ private fun TimedMessagesFeatureSection(
     )
     val currentChatTimer = contact.chatItemTTL
     InfoRow(
-      label = "Messages disappear after",
-      value = currentChatTimer?.let { formatTimerDuration(it) } ?: "Off"
+      title = "Messages disappear after",
+      value = currentChatTimer?.let { SimpleXAPI.formatTimerDuration(it) } ?: "Off"
     )
     
     // Allow manual override of chat timer
@@ -304,10 +304,18 @@ private fun TimerPickerDialog(
       LazyColumn {
         items(timerOptions) { (value, label) ->
           SectionItemView(
-            click = { onTimerSelected(value) },
-            selected = value == currentTimer
+            click = { onTimerSelected(value) }
           ) {
-            Text(label)
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Text(label)
+              if (value == currentTimer) {
+                Text("✓", color = MaterialTheme.colors.primary)
+              }
+            }
           }
         }
       }
