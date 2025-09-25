@@ -64,6 +64,7 @@ fun ContactPreferencesView(
       currentFeaturesAllowed,
       user,
       ct,
+      rhId,
       applyPrefs = { prefs ->
         featuresAllowed = prefs
       },
@@ -81,6 +82,7 @@ private fun ContactPreferencesLayout(
   currentFeaturesAllowed: ContactFeaturesAllowed,
   user: User,
   contact: Contact,
+  rhId: Long?,
   applyPrefs: (ContactFeaturesAllowed) -> Unit,
   reset: () -> Unit,
   savePrefs: () -> Unit,
