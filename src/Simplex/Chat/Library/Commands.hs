@@ -2908,7 +2908,7 @@ processChatCommand' vr = \case
     updateContactTimer :: User -> Contact -> Maybe Int64 -> CM ChatResponse
     updateContactTimer _ ct@Contact {activeConn = Nothing} _ = throwChatError $ CEContactNotActive ct
     updateContactTimer user@User {userId} ct@Contact {activeConn = Just _, chatItemTTL = oldTimer} newTimer
-      | oldTimer == newTimer = pure $ CRContactTimerUpdated user ct ct
+      | oldTimer == newTimer = pure $ CRContactTimerUpdated user ct oldTimer newTimer
       | otherwise = do
           -- Update contact with new timer
           ct' <- withStore' $ \db -> updateContactChatItemTTL db user ct newTimer
@@ -2929,7 +2929,7 @@ processChatCommand' vr = \case
           -- Emit timer update event to notify user
           toView $ CEvtContactTimerUpdated user ct oldTimer newTimer
           
-          pure $ CRContactTimerUpdated user ct ct'
+          pure $ CRContactTimerUpdated user ct oldTimer newTimer
     
     runUpdateGroupProfile :: User -> Group -> GroupProfile -> CM ChatResponse
     runUpdateGroupProfile user (Group g@GroupInfo {businessChat, groupProfile = p@GroupProfile {displayName = n}} ms) p'@GroupProfile {displayName = n'} = do
