@@ -2974,7 +2974,15 @@ object ChatController {
           withContext(Dispatchers.Main) {
             chatModel.chatsContext.updateContact(rhId, r.contact)
             // TODO: Show notification for timer negotiation 
-            Log.d(TAG, "Timer negotiated for contact ${r.contact.displayName}: ${formatTimerDuration(r.timerTTL)}")
+            val timerText = when {
+              r.timerTTL < 60 -> "${r.timerTTL}s"
+              r.timerTTL < 3600 -> "${r.timerTTL / 60}m"
+              r.timerTTL < 86400 -> "${r.timerTTL / 3600}h"
+              r.timerTTL < 2592000 -> "${r.timerTTL / 86400}d"
+              r.timerTTL < 31536000 -> "${r.timerTTL / 2592000}mo"
+              else -> "${r.timerTTL / 31536000}y"
+            }
+            Log.d(TAG, "Timer negotiated for contact ${r.contact.displayName}: $timerText")
           }
         }
       }
@@ -2983,8 +2991,18 @@ object ChatController {
           withContext(Dispatchers.Main) {
             chatModel.chatsContext.updateContact(rhId, r.contact)
             // TODO: Show notification for timer update
-            val fromText = r.fromTimer?.let { formatTimerDuration(it) } ?: "off"
-            val toText = r.toTimer?.let { formatTimerDuration(it) } ?: "off"
+            val formatTimer = { timer: Long -> 
+              when {
+                timer < 60 -> "${timer}s"
+                timer < 3600 -> "${timer / 60}m"
+                timer < 86400 -> "${timer / 3600}h"
+                timer < 2592000 -> "${timer / 86400}d"
+                timer < 31536000 -> "${timer / 2592000}mo"
+                else -> "${timer / 31536000}y"
+              }
+            }
+            val fromText = r.fromTimer?.let { formatTimer(it) } ?: "off"
+            val toText = r.toTimer?.let { formatTimer(it) } ?: "off"
             Log.d(TAG, "Timer updated for contact ${r.contact.displayName}: from $fromText to $toText")
           }
         }

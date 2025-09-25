@@ -223,7 +223,16 @@ private fun TimedMessagesFeatureSection(
     val currentChatTimer = contact.chatItemTTL
     InfoRow(
       title = "Messages disappear after",
-      value = currentChatTimer?.let { SimpleXAPI.formatTimerDuration(it) } ?: "Off"
+      value = currentChatTimer?.let { 
+        when {
+          it < 60 -> "${it}s"
+          it < 3600 -> "${it / 60}m"
+          it < 86400 -> "${it / 3600}h"
+          it < 2592000 -> "${it / 86400}d"
+          it < 31536000 -> "${it / 2592000}mo"
+          else -> "${it / 31536000}y"
+        }
+      } ?: "Off"
     )
     
     // Allow manual override of chat timer
