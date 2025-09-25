@@ -2049,9 +2049,11 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
     processContactProfileUpdate c@Contact {profile = lp, contactId = ctId, activeConn, chatItemTTL = oldChatItemTTL} p' createItems
       | p /= p' = do
           -- Check if this is initial connection (no chatItemTTL) and timer negotiation is needed
-          let Profile {defaultTimerTTL = contactDefaultTimerTTL, preferences = contactPreferences} = p'
+          let contactDefaultTimerTTL = (defaultTimerTTL :: Profile -> Maybe Int64) p'
+              Profile {preferences = contactPreferences} = p'
               needsTimerNegotiation = isNothing oldChatItemTTL && isJust contactDefaultTimerTTL
-              User {userId, defaultTimerTTL = userDefaultTTL} = user
+              userDefaultTTL = (defaultTimerTTL :: User -> Int64) user
+              User {userId} = user
           
           (c', timedDeleteAtList, profileUpdateNeeded) <- withStore $ \db -> do
             if needsTimerNegotiation
@@ -2109,7 +2111,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           
           -- Emit timer negotiation event if this was an initial timer negotiation
           when profileUpdateNeeded $ do
-            case chatItemTTL c' of
+            case (chatItemTTL :: Contact -> Maybe Int64) c' of
               Just ttl -> toView $ CEvtTimerNegotiated user c' ttl
               Nothing -> pure ()
           
@@ -2465,7 +2467,7 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
           ct <- withStore $ \db -> createDirectContact db user conn' p
           toView $ CEvtContactConnecting user ct
           -- Emit timer negotiation event if a timer was negotiated
-          case (defaultTimerTTL user, defaultTimerTTL p) of
+          case ((defaultTimerTTL :: User -> Int64) user, (defaultTimerTTL :: Profile -> Maybe Int64) p) of
             (uTTL, Just cTTL) -> do
               let negotiatedTTL = min uTTL cTTL
               toView $ CEvtTimerNegotiated user ct negotiatedTTL
