@@ -1256,6 +1256,9 @@ processChatCommand' vr = \case
   APISetContactPrefs contactId prefs' -> withUser $ \user -> do
     ct <- withFastStore $ \db -> getContact db vr user contactId
     updateContactPrefs user ct prefs'
+  APISetContactTimer contactId timerTTL -> withUser $ \user -> do
+    ct <- withFastStore $ \db -> getContact db vr user contactId
+    updateContactTimer user ct timerTTL
   APISetContactAlias contactId localAlias -> withUser $ \user@User {userId} -> do
     ct' <- withFastStore $ \db -> do
       ct <- getContact db vr user contactId
@@ -2901,6 +2904,33 @@ processChatCommand' vr = \case
 
           -- if chat-level TTL changed, reflect it in the returned event
           pure $ CRContactPrefsUpdated user ct ct'
+    
+    updateContactTimer :: User -> Contact -> Maybe Int64 -> CM ChatResponse
+    updateContactTimer _ ct@Contact {activeConn = Nothing} _ = throwChatError $ CEContactNotActive ct
+    updateContactTimer user@User {userId} ct@Contact {activeConn = Just _, chatItemTTL = oldTimer} newTimer
+      | oldTimer == newTimer = pure $ CRContactTimerUpdated user ct ct
+      | otherwise = do
+          -- Update contact with new timer
+          ct' <- withStore' $ \db -> updateContactChatItemTTL db user ct newTimer
+          
+          -- Schedule timed items based on new timer
+          timedDeleteAtList <- withStore $ \db -> do
+            case newTimer of
+              Nothing -> pure [] -- No timer, no scheduling
+              Just _ -> do
+                currentTs <- liftIO getCurrentTime
+                timedItems <- liftIO $ getDirectUnreadTimedItems db user (contactId' ct)
+                liftIO $ setDirectChatItemsDeleteAt db user (contactId' ct) timedItems currentTs
+          
+          -- Start proximate timed item threads for any rescheduled items
+          forM_ timedDeleteAtList $ \(itemId, deleteAt) -> 
+            startProximateTimedItemThread user (ChatRef CTDirect (contactId' ct), itemId) deleteAt
+          
+          -- Emit timer update event to notify user
+          toView $ CEvtContactTimerUpdated user ct oldTimer newTimer
+          
+          pure $ CRContactTimerUpdated user ct ct'
+    
     runUpdateGroupProfile :: User -> Group -> GroupProfile -> CM ChatResponse
     runUpdateGroupProfile user (Group g@GroupInfo {businessChat, groupProfile = p@GroupProfile {displayName = n}} ms) p'@GroupProfile {displayName = n'} = do
       assertUserGroupRole g GROwner
@@ -4078,6 +4108,7 @@ chatCommandP =
       "/_set alias #" *> (APISetGroupAlias <$> A.decimal <*> (A.space *> textP <|> pure "")),
       "/_set alias :" *> (APISetConnectionAlias <$> A.decimal <*> (A.space *> textP <|> pure "")),
       "/_set prefs @" *> (APISetContactPrefs <$> A.decimal <* A.space <*> jsonP),
+      "/_set timer @" *> (APISetContactTimer <$> A.decimal <* A.space <*> (Just <$> A.decimal <|> "off" $> Nothing)),
       "/_set theme user " *> (APISetUserUIThemes <$> A.decimal <*> optional (A.space *> jsonP)),
       "/_set theme " *> (APISetChatUIThemes <$> chatRefP <*> optional (A.space *> jsonP)),
       "/_ntf get" $> APIGetNtfToken,

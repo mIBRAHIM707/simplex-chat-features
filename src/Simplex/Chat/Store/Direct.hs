@@ -41,6 +41,7 @@ module Simplex.Chat.Store.Direct
     getContactIdByName,
     updateContactProfile,
     updateContactUserPreferences,
+    updateContactChatItemTTL,
     updateContactAlias,
     updateContactConnectionAlias,
     updatePCCIncognito,
@@ -416,6 +417,15 @@ updateContactUserPreferences db user@User {userId} c@Contact {contactId} userPre
     (userPreferences, updatedAt, userId, contactId)
   let mergedPreferences = contactUserPreferences user userPreferences (preferences' c) $ contactConnIncognito c
   pure $ c {mergedPreferences, userPreferences}
+
+updateContactChatItemTTL :: DB.Connection -> User -> Contact -> Maybe Int64 -> IO Contact
+updateContactChatItemTTL db User {userId} c@Contact {contactId} chatItemTTL = do
+  updatedAt <- getCurrentTime
+  DB.execute
+    db
+    "UPDATE contacts SET chat_item_ttl = ?, updated_at = ? WHERE user_id = ? AND contact_id = ?"
+    (chatItemTTL, updatedAt, userId, contactId)
+  pure $ c {chatItemTTL, updatedAt}
 
 updateContactAlias :: DB.Connection -> UserId -> Contact -> LocalAlias -> IO Contact
 updateContactAlias db userId c@Contact {profile = lp@LocalProfile {profileId}} localAlias = do

@@ -300,6 +300,8 @@ chatResponseToView hu cfg@ChatConfig {logLevel, showReactions, testView} liveIte
     ]
   CRAppSettings as -> ["app settings: " <> viewJSON as]
   CRCustomChatResponse u r -> ttyUser' u $ map plain $ T.lines r
+  CRTimerNegotiated u ct timerTTL -> ttyUser u $ viewTimerNegotiated ct timerTTL
+  CRContactTimerUpdated u ct fromTimer toTimer -> ttyUser u $ viewContactTimerUpdated ct fromTimer toTimer
   where
     ttyUser :: User -> [StyledString] -> [StyledString]
     ttyUser user@User {showNtfs, activeUser, viewPwdHash} ss
@@ -476,6 +478,8 @@ chatEventToView hu ChatConfig {logLevel, showReactions, showReceipts, testView} 
   CEvtCallAnswer {user = u, contact, answer} -> ttyUser u $ viewCallAnswer contact answer
   CEvtCallExtraInfo {user = u, contact} -> ttyUser u ["call extra info from " <> ttyContact' contact]
   CEvtCallEnded {user = u, contact} -> ttyUser u ["call with " <> ttyContact' contact <> " ended"]
+  CEvtTimerNegotiated u ct timerTTL -> ttyUser u $ viewTimerNegotiated ct timerTTL
+  CEvtContactTimerUpdated u ct fromTimer toTimer -> ttyUser u $ viewContactTimerUpdated ct fromTimer toTimer
   CEvtNtfMessage {} -> []
   CEvtRemoteHostSessionCode {remoteHost_, sessionCode} ->
     [ maybe "new remote host connecting" (\RemoteHostInfo {remoteHostId = rhId} -> "remote host " <> sShow rhId <> " connecting") remoteHost_,
@@ -1470,6 +1474,25 @@ viewChatItemTTL = \case
     | otherwise -> deletedAfter $ sShow ttl <> " second(s)"
   where
     deletedAfter ttlStr = ["old messages are set to be deleted after: " <> ttlStr]
+
+viewTimerNegotiated :: Contact -> Int64 -> [StyledString]
+viewTimerNegotiated ct ttl = 
+  [ttyContact' ct <> ": disappearing message timer negotiated - " <> formatTimerTTL ttl]
+
+viewContactTimerUpdated :: Contact -> Maybe Int64 -> Maybe Int64 -> [StyledString]
+viewContactTimerUpdated ct fromTimer toTimer =
+  [ttyContact' ct <> ": updated disappearing message timer from " <> formatMaybeTimer fromTimer <> " to " <> formatMaybeTimer toTimer]
+  where
+    formatMaybeTimer = maybe "disabled" formatTimerTTL
+
+formatTimerTTL :: Int64 -> StyledString
+formatTimerTTL ttl
+  | ttl < 60 = plain $ tshow ttl <> " second" <> (if ttl == 1 then "" else "s")
+  | ttl < 3600 = plain $ tshow (ttl `div` 60) <> " minute" <> (if ttl == 60 then "" else "s")
+  | ttl < 86400 = plain $ tshow (ttl `div` 3600) <> " hour" <> (if ttl == 3600 then "" else "s")
+  | ttl < 2592000 = plain $ tshow (ttl `div` 86400) <> " day" <> (if ttl == 86400 then "" else "s")
+  | ttl < 31536000 = plain $ tshow (ttl `div` 2592000) <> " month" <> (if ttl == 2592000 then "" else "s")
+  | otherwise = plain $ tshow (ttl `div` 31536000) <> " year" <> (if ttl == 31536000 then "" else "s")
 
 viewNetworkConfig :: NetworkConfig -> [StyledString]
 viewNetworkConfig NetworkConfig {socksProxy, socksMode, tcpTimeout, smpProxyMode, smpProxyFallback} =

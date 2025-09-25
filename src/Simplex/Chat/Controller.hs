@@ -345,6 +345,7 @@ data ChatCommand
   | APIGetNetworkStatuses
   | APIUpdateProfile UserId Profile
   | APISetContactPrefs ContactId Preferences
+  | APISetContactTimer ContactId (Maybe Int64)
   | APISetContactAlias ContactId LocalAlias
   | APISetGroupAlias GroupId LocalAlias
   | APISetConnectionAlias Int64 LocalAlias
@@ -738,6 +739,8 @@ data ChatResponse
   | CRAgentQueuesInfo {agentQueuesInfo :: AgentQueuesInfo}
   | CRAppSettings {appSettings :: AppSettings}
   | CRCustomChatResponse {user_ :: Maybe User, response :: Text}
+  | CRTimerNegotiated {user :: User, contact :: Contact, timerTTL :: Int64}
+  | CRContactTimerUpdated {user :: User, contact :: Contact, fromTimer :: Maybe Int64, toTimer :: Maybe Int64}
   deriving (Show)
 
 data ChatEvent
@@ -798,6 +801,8 @@ data ChatEvent
   | CEvtContactsSubscribed {server :: SMPServer, contactRefs :: [ContactRef]}
   | CEvtContactSubError {user :: User, contact :: Contact, chatError :: ChatError}
   | CEvtContactSubSummary {user :: User, contactSubscriptions :: [ContactSubStatus]}
+  | CEvtTimerNegotiated {user :: User, contact :: Contact, timerTTL :: Int64}
+  | CEvtContactTimerUpdated {user :: User, contact :: Contact, fromTimer :: Maybe Int64, toTimer :: Maybe Int64}
   | CEvtUserContactSubSummary {user :: User, userContactSubscriptions :: [UserContactSubStatus]}
   | CEvtNetworkStatus {networkStatus :: NetworkStatus, connections :: [AgentConnId]}
   | CEvtNetworkStatuses {user_ :: Maybe User, networkStatuses :: [ConnNetworkStatus]} -- there is the same command response

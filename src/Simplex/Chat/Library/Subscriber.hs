@@ -2107,6 +2107,12 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
                   void (sendDirectContactMessage user c' $ XInfo mergedProfile) `catchChatError` const (pure ())
               _ -> pure ()
           
+          -- Emit timer negotiation event if this was an initial timer negotiation
+          when profileUpdateNeeded $ do
+            case chatItemTTL c' of
+              Just ttl -> toView $ CEvtTimerNegotiated user c' ttl
+              Nothing -> pure ()
+          
           -- Don't send profile updates when processing incoming XInfo to prevent feedback loops
           -- Profile updates should only be sent when local user preferences change
           when (directOrUsed c' && createItems) $ do
@@ -2458,6 +2464,12 @@ processAgentMessageConn vr user corrId agentConnId agentMessage = do
         XInfo p -> do
           ct <- withStore $ \db -> createDirectContact db user conn' p
           toView $ CEvtContactConnecting user ct
+          -- Emit timer negotiation event if a timer was negotiated
+          case (defaultTimerTTL user, defaultTimerTTL p) of
+            (uTTL, Just cTTL) -> do
+              let negotiatedTTL = min uTTL cTTL
+              toView $ CEvtTimerNegotiated user ct negotiatedTTL
+            (uTTL, Nothing) -> toView $ CEvtTimerNegotiated user ct uTTL
           pure (conn', False)
         XGrpLinkInv glInv -> do
           (gInfo, host) <- withStore $ \db -> createGroupInvitedViaLink db vr user conn' glInv
