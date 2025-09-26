@@ -215,66 +215,83 @@ private fun TimedMessagesFeatureSection(
       InfoRow(generalGetString(MR.strings.delete_after), timeText(pref.contactPreference.ttl))
     }
     
-    // Show current chat timer (actual negotiated timer)
+    // Show current active chat timer (actual negotiated timer between users)
     SectionDividerSpaced(false)
-    Text(
-      text = "CURRENT CHAT TIMER",
-      style = MaterialTheme.typography.body2,
-      color = MaterialTheme.colors.secondary
-    )
     val currentChatTimer = contact.chatItemTTL
-    InfoRow(
-      title = "Messages disappear after",
-      value = currentChatTimer?.let { 
-        when {
-          it < 60 -> "${it}s"
-          it < 3600 -> "${it / 60}m"
-          it < 86400 -> "${it / 3600}h"
-          it < 2592000 -> "${it / 86400}d"
-          it < 31536000 -> "${it / 2592000}mo"
-          else -> "${it / 31536000}y"
+    if (currentChatTimer != null) {
+      InfoRow(
+        title = "Active timer (negotiated)",
+        value = when {
+          currentChatTimer < 60 -> "${currentChatTimer}s"
+          currentChatTimer < 3600 -> "${currentChatTimer / 60}m"
+          currentChatTimer < 86400 -> "${currentChatTimer / 3600}h"
+          currentChatTimer < 2592000 -> "${currentChatTimer / 86400}d"
+          currentChatTimer < 31536000 -> "${currentChatTimer / 2592000}mo"
+          else -> "${currentChatTimer / 31536000}y"
         }
-      } ?: "Off"
-    )
-    
-    // Allow manual override of chat timer
-    var showTimerDialog by rememberSaveable { mutableStateOf(false) }
-    SectionItemView(
-      click = { showTimerDialog = true }
-    ) {
-      Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+      )
+      
+      // Allow manual override of active chat timer
+      var showTimerDialog by rememberSaveable { mutableStateOf(false) }
+      SectionItemView(
+        click = { showTimerDialog = true }
       ) {
-        Text("Override chat timer")
-        Text(
-          text = "Change",
-          color = MaterialTheme.colors.primary
-        )
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Text("Override active timer")
+          Text(
+            text = "Change",
+            color = MaterialTheme.colors.primary
+          )
+        }
       }
-    }
-    
-    if (showTimerDialog) {
-      TimerPickerDialog(
-        currentTimer = currentChatTimer,
-        onTimerSelected = { newTimer ->
-          // Update chat timer
-          withBGApi {
-            val updatedContact = chatModel.controller.apiSetContactTimer(rhId, contact.contactId, newTimer)
-            if (updatedContact != null) {
-              withContext(Dispatchers.Main) {
-                chatModel.chatsContext.updateContact(rhId, updatedContact)
+      
+      if (showTimerDialog) {
+        TimerPickerDialog(
+          currentTimer = currentChatTimer,
+          onTimerSelected = { newTimer ->
+            // Update chat timer with notification
+            withBGApi {
+              val updatedContact = chatModel.controller.apiSetContactTimer(rhId, contact.contactId, newTimer)
+              if (updatedContact != null) {
+                withContext(Dispatchers.Main) {
+                  chatModel.chatsContext.updateContact(rhId, updatedContact)
+                  // Show success notification
+                  chatModel.showToast("Timer updated successfully")
+                }
+              } else {
+                withContext(Dispatchers.Main) {
+                  // Show error notification
+                  chatModel.showToast("Failed to update timer")
+                }
               }
             }
-          }
-          showTimerDialog = false
-        },
-        onDismiss = { showTimerDialog = false }
+            showTimerDialog = false
+          },
+          onDismiss = { showTimerDialog = false }
+        )
+      }
+    } else {
+      InfoRow(
+        title = "Active timer",
+        value = "Off (no timer negotiated)"
       )
     }
   }
-  SectionTextFooter(ChatFeature.TimedMessages.enabledDescription(enabled))
+  SectionTextFooter(
+    if (enabled.forUser && enabled.forContact) {
+      if (contact.chatItemTTL != null) {
+        "${ChatFeature.TimedMessages.enabledDescription(enabled)} Timer automatically negotiated between users."
+      } else {
+        "${ChatFeature.TimedMessages.enabledDescription(enabled)} Timer will be negotiated when you both have this feature enabled."
+      }
+    } else {
+      ChatFeature.TimedMessages.enabledDescription(enabled)
+    }
+  )
 }
 
 @Composable

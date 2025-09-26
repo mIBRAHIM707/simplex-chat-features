@@ -2973,7 +2973,7 @@ object ChatController {
         if (active(r.user) && r.contact.directOrUsed) {
           withContext(Dispatchers.Main) {
             chatModel.chatsContext.updateContact(rhId, r.contact)
-            // TODO: Show notification for timer negotiation 
+            // Show notification for timer negotiation 
             val timerText = when {
               r.timerTTL < 60 -> "${r.timerTTL}s"
               r.timerTTL < 3600 -> "${r.timerTTL / 60}m"
@@ -2982,6 +2982,7 @@ object ChatController {
               r.timerTTL < 31536000 -> "${r.timerTTL / 2592000}mo"
               else -> "${r.timerTTL / 31536000}y"
             }
+            chatModel.showToast("Timer negotiated with ${r.contact.displayName}: $timerText")
             Log.d(TAG, "Timer negotiated for contact ${r.contact.displayName}: $timerText")
           }
         }
@@ -2990,7 +2991,7 @@ object ChatController {
         if (active(r.user) && r.contact.directOrUsed) {
           withContext(Dispatchers.Main) {
             chatModel.chatsContext.updateContact(rhId, r.contact)
-            // TODO: Show notification for timer update
+            // Show notification for timer update
             val formatTimer = { timer: Long -> 
               when {
                 timer < 60 -> "${timer}s"
@@ -3003,6 +3004,7 @@ object ChatController {
             }
             val fromText = r.fromTimer?.let { formatTimer(it) } ?: "off"
             val toText = r.toTimer?.let { formatTimer(it) } ?: "off"
+            chatModel.showToast("Timer updated for ${r.contact.displayName}: $fromText → $toText")
             Log.d(TAG, "Timer updated for contact ${r.contact.displayName}: from $fromText to $toText")
           }
         }
